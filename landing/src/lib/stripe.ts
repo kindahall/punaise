@@ -21,3 +21,9 @@ export function getStripe() {
 
   return stripe;
 }
+
+export function getStripeRequestOptions() {
+  const stripeAccount = process.env.STRIPE_ACCOUNT_ID?.trim();
+
+  return stripeAccount ? { stripeAccount } : undefined;
+}

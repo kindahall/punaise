@@ -24,7 +24,7 @@ Copier `.env.example` vers `.env.local`.
 cp .env.example .env.local
 ```
 
-Définir `STRIPE_SECRET_KEY`, `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_ANNUAL_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` et `PUNAISE_LICENSE_PRIVATE_KEY_B64`.
+Définir `STRIPE_SECRET_KEY`, `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_ANNUAL_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` et `PUNAISE_LICENSE_PRIVATE_KEY_B64`. Si la clé Stripe est une clé de plateforme Connect, définir aussi `STRIPE_ACCOUNT_ID`.
 
 `NEXT_PUBLIC_PRO_MONTHLY_PRICE`, `NEXT_PUBLIC_PRO_ANNUAL_PRICE` et `NEXT_PUBLIC_PRO_MONTHLY_EQUIVALENT` pilotent le libellé visible du tarif.
 

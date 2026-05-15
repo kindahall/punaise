@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getStripeRequestOptions } from "@/lib/stripe";
 
 export async function POST(request: NextRequest) {
   const origin = (
@@ -83,7 +83,10 @@ export async function POST(request: NextRequest) {
     sessionParams.subscription_data = { metadata };
   }
 
-  const session = await stripe.checkout.sessions.create(sessionParams);
+  const session = await stripe.checkout.sessions.create(
+    sessionParams,
+    getStripeRequestOptions(),
+  );
 
   if (!session.url) {
     if (lang) {

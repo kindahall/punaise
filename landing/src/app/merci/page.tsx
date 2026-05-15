@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, Download, KeyRound } from "lucide-react";
 import { issueSignedLicense, type LicensePlan } from "@/lib/license";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getStripeRequestOptions } from "@/lib/stripe";
 import { getSiteLocale, siteCopy, withLocale } from "@/lib/site-i18n";
 
 type MerciPageProps = {
@@ -68,7 +68,11 @@ async function licenseKeyForCheckoutSession(sessionId?: string) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(
+      sessionId,
+      undefined,
+      getStripeRequestOptions(),
+    );
     const isPaid =
       session.payment_status === "paid" ||
       session.payment_status === "no_payment_required";
