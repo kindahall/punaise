@@ -180,7 +180,7 @@ struct SecureBackupStatus {
     var isICloudDriveAvailable: Bool
 
     var iCloudStatusTitle: String {
-        isICloudDriveAvailable ? "iCloud Drive disponible" : "iCloud Drive indisponible"
+        PunaiseL10n.string(isICloudDriveAvailable ? "iCloud Drive disponible" : "iCloud Drive indisponible")
     }
 }
 
@@ -204,13 +204,13 @@ private enum SecureBackupError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unableToSealBackup:
-            return "Impossible de chiffrer la sauvegarde."
+            return PunaiseL10n.string("Impossible de chiffrer la sauvegarde.")
         case .keyGenerationFailed:
-            return "Impossible de générer la clé de sauvegarde."
+            return PunaiseL10n.string("Impossible de générer la clé de sauvegarde.")
         case .keychainReadFailed:
-            return "Impossible de lire la clé dans le trousseau."
+            return PunaiseL10n.string("Impossible de lire la clé dans le trousseau.")
         case .keychainWriteFailed:
-            return "Impossible d’enregistrer la clé dans le trousseau."
+            return PunaiseL10n.string("Impossible d’enregistrer la clé dans le trousseau.")
         }
     }
 }

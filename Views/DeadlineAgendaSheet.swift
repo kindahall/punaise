@@ -7,9 +7,17 @@ struct DeadlineAgendaSheet: View {
     @State private var displayedMonth: Date
     @State private var hour: Int
     @State private var minute: Int
+    @Environment(\.colorScheme) private var colorScheme
 
-    private let calendar = Calendar.current
-    private let weekdaySymbols = Calendar.current.shortWeekdaySymbols
+    private var calendar: Calendar {
+        var calendar = Calendar.current
+        calendar.locale = PunaiseLanguage.current.locale
+        return calendar
+    }
+
+    private var weekdaySymbols: [String] {
+        calendar.shortWeekdaySymbols
+    }
 
     init(deadline: Binding<Date>, isPresented: Binding<Bool>) {
         _deadline = deadline
@@ -21,36 +29,43 @@ struct DeadlineAgendaSheet: View {
     }
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         VStack(spacing: 0) {
             header
 
             HStack(alignment: .top, spacing: 22) {
                 monthCalendar
-                    .frame(width: 560)
+                    .frame(width: 540)
 
                 Divider()
 
                 sidePanel
-                    .frame(width: 260)
+                    .frame(width: 268)
             }
-            .padding(24)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .frame(maxHeight: .infinity, alignment: .top)
 
             Divider()
 
             footer
         }
-        .frame(width: 900, height: 680)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(red: 1.0, green: 0.86, blue: 0.52).opacity(0.16),
-                    Color(nsColor: .windowBackgroundColor)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .frame(width: 880, height: 620)
+        .background {
+            theme.windowBase
+            if theme.isDark {
+                LinearGradient(
+                    colors: [
+                        theme.accent.opacity(0.10),
+                        .clear,
+                        theme.linkBlue.opacity(0.07)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
     }
 
     private var header: some View {
@@ -58,7 +73,7 @@ struct DeadlineAgendaSheet: View {
             PunaiseLogo(size: 34)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Échéance")
+                Text(PunaiseL10n.string("Échéance"))
                     .font(.system(size: 24, weight: .semibold))
                 Text(PunaiseDateFormatting.shortDateTime.string(from: deadline))
                     .font(.system(size: 13, weight: .medium))
@@ -74,14 +89,17 @@ struct DeadlineAgendaSheet: View {
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(IconButtonStyle())
-            .help("Fermer")
+            .help(PunaiseL10n.string("Fermer"))
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
     }
 
     private var monthCalendar: some View {
-        VStack(spacing: 14) {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
+        return VStack(spacing: 10) {
             HStack {
                 Button {
                     moveMonth(-1)
@@ -96,6 +114,8 @@ struct DeadlineAgendaSheet: View {
                 Text(PunaiseDateFormatting.monthYear.string(from: displayedMonth).capitalized)
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Color(red: 0.08, green: 0.22, blue: 0.40))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 Spacer()
 
@@ -108,12 +128,12 @@ struct DeadlineAgendaSheet: View {
                 .buttonStyle(IconButtonStyle())
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 7), spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 8) {
                 ForEach(weekdaySymbols, id: \.self) { weekday in
                     Text(weekday.prefix(2).uppercased())
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.secondary)
-                        .frame(height: 22)
+                        .frame(height: 18)
                 }
 
                 ForEach(calendarDays) { day in
@@ -128,18 +148,20 @@ struct DeadlineAgendaSheet: View {
                 }
             }
         }
-        .padding(18)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(14)
+        .background(theme.panelSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(.black.opacity(0.08))
+                .stroke(theme.hairline)
         )
     }
 
     private var sidePanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
+        return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Heure")
+                Text(PunaiseL10n.string("Heure"))
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.secondary)
 
@@ -167,23 +189,23 @@ struct DeadlineAgendaSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Rapide")
+                Text(PunaiseL10n.string("Rapide"))
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.secondary)
 
-                QuickDeadlineButton(title: "Aujourd’hui 18:00") {
+                QuickDeadlineButton(title: "\(PunaiseL10n.string("Aujourd’hui")) 18:00") {
                     setQuickDate(dayOffset: 0, hour: 18, minute: 0)
                 }
 
-                QuickDeadlineButton(title: "Demain 09:00") {
+                QuickDeadlineButton(title: "\(PunaiseL10n.string("Demain")) 09:00") {
                     setQuickDate(dayOffset: 1, hour: 9, minute: 0)
                 }
 
-                QuickDeadlineButton(title: "Demain 18:00") {
+                QuickDeadlineButton(title: "\(PunaiseL10n.string("Demain")) 18:00") {
                     setQuickDate(dayOffset: 1, hour: 18, minute: 0)
                 }
 
-                QuickDeadlineButton(title: "Dans 1 semaine") {
+                QuickDeadlineButton(title: PunaiseL10n.string("Dans 1 semaine")) {
                     setQuickDate(dayOffset: 7, hour: 9, minute: 0)
                 }
             }
@@ -191,19 +213,27 @@ struct DeadlineAgendaSheet: View {
             Spacer()
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Sélection")
+                Text(PunaiseL10n.string("Sélection"))
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.secondary)
                 Text(PunaiseDateFormatting.shortDateTime.string(from: deadline))
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                 Text(PunaiseDateFormatting.relativeDeadline(deadline, now: Date()))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(theme.inputSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(theme.hairline)
+            )
         }
     }
 
@@ -212,27 +242,31 @@ struct DeadlineAgendaSheet: View {
             Button {
                 setQuickDate(dayOffset: 0, hour: Calendar.current.component(.hour, from: Date()), minute: roundedMinute(Calendar.current.component(.minute, from: Date())))
             } label: {
-                Label("Maintenant", systemImage: "clock")
+                Label(PunaiseL10n.string("Maintenant"), systemImage: "clock")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .buttonStyle(SecondaryButtonStyle())
 
             Spacer()
 
-            Button("Annuler") {
+            Button(PunaiseL10n.string("Annuler")) {
                 isPresented = false
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BouncyPlainButtonStyle())
             .foregroundStyle(.secondary)
 
             Button {
                 isPresented = false
             } label: {
-                Label("Valider l’échéance", systemImage: "checkmark")
+                Label(PunaiseL10n.string("Valider l’échéance"), systemImage: "checkmark")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .buttonStyle(PrimaryButtonStyle())
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
     }
 
     private var calendarDays: [DeadlineCalendarDay] {
@@ -314,7 +348,7 @@ private struct DeadlineDayCell: View {
                     .frame(width: 5, height: 5)
             }
             .foregroundStyle(foreground)
-            .frame(height: 62)
+            .frame(height: 50)
             .frame(maxWidth: .infinity)
             .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
@@ -322,7 +356,7 @@ private struct DeadlineDayCell: View {
                     .stroke(isSelected ? Color.orange.opacity(0.50) : Color.black.opacity(0.06))
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BouncyPlainButtonStyle())
     }
 
     private var isSelected: Bool {

@@ -13,6 +13,10 @@ final class ReminderStore: ObservableObject {
     private let storageURL: URL
     private var hasLoaded = false
 
+    var activeReminderCount: Int {
+        reminders.filter { !$0.isArchived }.count
+    }
+
     init(storageURL: URL? = nil) {
         self.storageURL = storageURL ?? Self.defaultStorageURL()
         load()
@@ -20,7 +24,7 @@ final class ReminderStore: ObservableObject {
     }
 
     func createReminder(
-        title: String = "Nouvelle Punaise",
+        title: String? = nil,
         note: String = "",
         deadline: Date = Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date(),
         urgency: Urgency = .neutral,
@@ -31,8 +35,9 @@ final class ReminderStore: ObservableObject {
         attachments: [PunaiseAttachment] = [],
         recurrence: RecurrenceRule = .none
     ) -> Reminder {
+        let resolvedTitle = title ?? PunaiseL10n.string("Nouvelle Punaise")
         let reminder = Reminder(
-            title: title,
+            title: resolvedTitle,
             note: note,
             deadline: deadline,
             urgency: urgency,
@@ -46,6 +51,26 @@ final class ReminderStore: ObservableObject {
         )
         reminders.insert(reminder, at: 0)
         return reminder
+    }
+
+    func localizeGeneratedDefaultTitlesForCurrentLanguage() {
+        let generatedTitles = [
+            "Nouvelle Punaise",
+            "New Punaise"
+        ]
+        let localizedTitle = PunaiseL10n.string("Nouvelle Punaise")
+        var didChange = false
+
+        for index in reminders.indices where generatedTitles.contains(reminders[index].title) {
+            guard reminders[index].title != localizedTitle else { continue }
+            reminders[index].title = localizedTitle
+            reminders[index].updatedAt = Date()
+            didChange = true
+        }
+
+        if didChange {
+            sortReminders()
+        }
     }
 
     func createReminder(from template: PunaiseTemplate) -> Reminder {
@@ -255,7 +280,7 @@ final class ReminderStore: ObservableObject {
         guard let source = reminder(id: id) else { return nil }
         var copy = source
         copy.id = UUID()
-        copy.title = "\(source.displayTitle) copie"
+        copy.title = PunaiseLanguage.current == .english ? "\(source.displayTitle) copy" : "\(source.displayTitle) copie"
         copy.createdAt = Date()
         copy.updatedAt = Date()
         copy.desktopPosition = nil
@@ -294,6 +319,13 @@ final class ReminderStore: ObservableObject {
         }
     }
 
+    func cycleQuickDeadline(_ id: Reminder.ID, now: Date = Date()) {
+        update(id) { reminder in
+            reminder.deadline = Self.nextQuickDeadline(after: reminder.deadline, now: now)
+            reminder.isArchived = false
+        }
+    }
+
     func toggleArchived(_ id: Reminder.ID) {
         update(id) { reminder in
             reminder.isArchived.toggle()
@@ -306,8 +338,40 @@ final class ReminderStore: ObservableObject {
         }
     }
 
+    private static func nextQuickDeadline(after currentDeadline: Date, now: Date) -> Date {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+
+        func candidate(dayOffset: Int, hour: Int) -> Date {
+            let day = calendar.date(byAdding: .day, value: dayOffset, to: today) ?? today
+            return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day) ?? day
+        }
+
+        let candidates = [
+            candidate(dayOffset: 0, hour: 18),
+            candidate(dayOffset: 1, hour: 9),
+            candidate(dayOffset: 1, hour: 18),
+            candidate(dayOffset: 7, hour: 9)
+        ]
+
+        if let currentIndex = candidates.firstIndex(where: { abs($0.timeIntervalSince(currentDeadline)) < 60 }) {
+            for offset in 1...candidates.count {
+                let next = candidates[(currentIndex + offset) % candidates.count]
+                if next > now {
+                    return next
+                }
+            }
+        }
+
+        if let nextAfterCurrent = candidates.first(where: { $0 > currentDeadline && $0 > now }) {
+            return nextAfterCurrent
+        }
+
+        return candidates.first(where: { $0 > now }) ?? candidate(dayOffset: 1, hour: 9)
+    }
+
     func resetToExamples() {
-        reminders = Self.seedReminders()
+        reminders = []
     }
 
     var secureBackupStatus: SecureBackupStatus {
@@ -319,18 +383,20 @@ final class ReminderStore: ObservableObject {
             let urls = try SecureBackupService.writeBackups(reminders: reminders, storageURL: storageURL)
             if urls.isEmpty {
                 return SecureBackupMessage(
-                    title: "Sauvegarde désactivée",
-                    detail: "Active la sauvegarde chiffrée pour créer un fichier sécurisé."
+                    title: PunaiseL10n.string("Sauvegarde désactivée"),
+                    detail: PunaiseL10n.string("Active la sauvegarde chiffrée pour créer un fichier sécurisé.")
                 )
             }
 
             return SecureBackupMessage(
-                title: "Sauvegarde chiffrée prête",
-                detail: "\(urls.count) emplacement\(urls.count > 1 ? "s" : "") mis à jour."
+                title: PunaiseL10n.string("Sauvegarde chiffrée prête"),
+                detail: PunaiseLanguage.current == .english
+                    ? "\(urls.count) location\(urls.count > 1 ? "s" : "") updated."
+                    : "\(urls.count) emplacement\(urls.count > 1 ? "s" : "") mis à jour."
             )
         } catch {
             return SecureBackupMessage(
-                title: "Sauvegarde impossible",
+                title: PunaiseL10n.string("Sauvegarde impossible"),
                 detail: error.localizedDescription
             )
         }
@@ -340,27 +406,29 @@ final class ReminderStore: ObservableObject {
         do {
             guard SecureBackupService.iCloudDriveBackupURL() != nil else {
                 return SecureBackupMessage(
-                    title: "iCloud Drive indisponible",
-                    detail: "Active iCloud Drive sur ce Mac pour utiliser la synchronisation."
+                    title: PunaiseL10n.string("iCloud Drive indisponible"),
+                    detail: PunaiseL10n.string("Active iCloud Drive sur ce Mac pour utiliser la synchronisation.")
                 )
             }
 
             guard let cloudReminders = try SecureBackupService.importCloudBackupIfNewerThanLocal(storageURL: storageURL) else {
                 _ = try SecureBackupService.writeBackups(reminders: reminders, storageURL: storageURL)
                 return SecureBackupMessage(
-                    title: "iCloud Drive à jour",
-                    detail: "La sauvegarde chiffrée actuelle est disponible dans iCloud Drive."
+                    title: PunaiseL10n.string("iCloud Drive à jour"),
+                    detail: PunaiseL10n.string("La sauvegarde chiffrée actuelle est disponible dans iCloud Drive.")
                 )
             }
 
             reminders = cloudReminders
             return SecureBackupMessage(
-                title: "Synchronisation terminée",
-                detail: "\(cloudReminders.count) Punaise\(cloudReminders.count > 1 ? "s" : "") récupérée\(cloudReminders.count > 1 ? "s" : "")."
+                title: PunaiseL10n.string("Synchronisation terminée"),
+                detail: PunaiseLanguage.current == .english
+                    ? "\(cloudReminders.count) Punaise\(cloudReminders.count > 1 ? "s" : "") restored."
+                    : "\(cloudReminders.count) Punaise\(cloudReminders.count > 1 ? "s" : "") récupérée\(cloudReminders.count > 1 ? "s" : "")."
             )
         } catch {
             return SecureBackupMessage(
-                title: "Synchronisation impossible",
+                title: PunaiseL10n.string("Synchronisation impossible"),
                 detail: error.localizedDescription
             )
         }
@@ -369,13 +437,13 @@ final class ReminderStore: ObservableObject {
     func createFirstLaunchPunaise() -> Reminder {
         let deadline = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date()
         return createReminder(
-            title: "Ma première Punaise",
-            note: "Un exemple épinglé pour sentir l’urgence monter.",
+            title: PunaiseL10n.string("Ma première Punaise"),
+            note: PunaiseL10n.string("Un exemple épinglé pour sentir l’urgence monter."),
             deadline: deadline,
             urgency: .urgent,
             isPinned: true,
-            project: "Découverte",
-            tags: ["première"]
+            project: PunaiseL10n.string("Découverte"),
+            tags: [PunaiseL10n.string("première")]
         )
     }
 
@@ -404,7 +472,7 @@ final class ReminderStore: ObservableObject {
             let data = try Data(contentsOf: storageURL)
             reminders = try JSONDecoder.postit.decode([Reminder].self, from: data)
         } catch {
-            reminders = Self.seedReminders()
+            reminders = []
         }
 
         importCloudBackupDuringLoadIfNeeded()
@@ -475,7 +543,7 @@ final class ReminderStore: ObservableObject {
     private func calendarAttachment(for event: CalendarEventCandidate) -> PunaiseAttachment? {
         guard let url = event.url else { return nil }
         return PunaiseAttachment(
-            title: "Événement Agenda",
+            title: PunaiseL10n.string("Événement Agenda"),
             target: url.absoluteString,
             kind: .website
         )
@@ -499,7 +567,7 @@ final class ReminderStore: ObservableObject {
     private func reminderAttachment(for candidate: ReminderCandidate) -> PunaiseAttachment? {
         guard let url = candidate.url else { return nil }
         return PunaiseAttachment(
-            title: "Rappel Apple",
+            title: PunaiseL10n.string("Rappel Apple"),
             target: url.absoluteString,
             kind: .website
         )
@@ -524,61 +592,6 @@ final class ReminderStore: ObservableObject {
         reminders[index].attachment = reminders[index].attachments.first
     }
 
-    private static func seedReminders() -> [Reminder] {
-        let calendar = Calendar.current
-        let now = Date()
-
-        return [
-            Reminder(
-                title: "Envoyer contrat",
-                note: "Relire la version finale et envoyer au client.",
-                deadline: calendar.date(byAdding: .minute, value: 45, to: now) ?? now,
-                urgency: .urgent,
-                isPinned: true,
-                project: "Clients",
-                tags: ["contrat", "client"],
-                template: .contrat
-            ),
-            Reminder(
-                title: "Appeler le fournisseur",
-                note: "Confirmer la livraison avant demain.",
-                deadline: calendar.date(byAdding: .hour, value: 18, to: now) ?? now,
-                urgency: .urgent,
-                isPinned: true,
-                project: "Opérations",
-                tags: ["appel", "livraison"],
-                template: .appel
-            ),
-            Reminder(
-                title: "Réunion équipe produit",
-                note: "Préparer les points à décider.",
-                deadline: calendar.date(byAdding: .hour, value: 9, to: now) ?? now,
-                urgency: .neutral,
-                isPinned: true,
-                project: "Produit",
-                tags: ["réunion"]
-            ),
-            Reminder(
-                title: "Préparer présentation investisseurs",
-                note: "Exporter les chiffres et les captures.",
-                deadline: calendar.date(byAdding: .day, value: 3, to: now) ?? now,
-                urgency: .relaxed,
-                isPinned: true,
-                project: "Finance",
-                tags: ["présentation"]
-            ),
-            Reminder(
-                title: "Payer facture",
-                note: "Vérifier le montant puis terminer la Punaise.",
-                deadline: calendar.date(byAdding: .hour, value: -8, to: now) ?? now,
-                urgency: .urgent,
-                isPinned: true,
-                project: "Finance",
-                tags: ["facture"],
-                template: .facture
-            )
-        ]
-    }
 }
 
 private extension JSONEncoder {

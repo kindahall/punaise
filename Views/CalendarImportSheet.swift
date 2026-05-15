@@ -5,6 +5,7 @@ struct CalendarImportSheet: View {
     let onImport: ([CalendarEventCandidate]) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedEventIDs: Set<String> = []
 
     private var selectedEvents: [CalendarEventCandidate] {
@@ -12,6 +13,8 @@ struct CalendarImportSheet: View {
     }
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         VStack(spacing: 0) {
             header
 
@@ -30,17 +33,20 @@ struct CalendarImportSheet: View {
             footer
         }
         .frame(width: 820, height: 620)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(red: 0.84, green: 0.93, blue: 1.0).opacity(0.22),
-                    Color(nsColor: .windowBackgroundColor)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background {
+            theme.windowBase
+            if theme.isDark {
+                LinearGradient(
+                    colors: [
+                        theme.linkBlue.opacity(0.12),
+                        .clear,
+                        theme.accent.opacity(0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
         .onAppear {
             if importer.hasAccess {
                 importer.refresh()
@@ -124,7 +130,7 @@ struct CalendarImportSheet: View {
     private var connectedContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("\(importer.events.count) candidat\(importer.events.count > 1 ? "s" : "") détecté\(importer.events.count > 1 ? "s" : "")", systemImage: "calendar")
+                Label(candidateCountText, systemImage: "calendar")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.secondary)
 
@@ -197,7 +203,7 @@ struct CalendarImportSheet: View {
 
     private var footer: some View {
         HStack {
-            Text("\(selectedEvents.count) sélectionné\(selectedEvents.count > 1 ? "s" : "")")
+            Text(selectedCountText)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.secondary)
 
@@ -206,7 +212,7 @@ struct CalendarImportSheet: View {
             Button("Annuler") {
                 dismiss()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BouncyPlainButtonStyle())
             .foregroundStyle(.secondary)
 
             Button {
@@ -224,18 +230,35 @@ struct CalendarImportSheet: View {
 
     private var permissionText: String {
         if importer.isDenied {
-            return "Autorise Punaise dans Confidentialité > Calendriers, puis reviens actualiser l’import."
+            return PunaiseL10n.string("Autorise Punaise dans Confidentialité > Calendriers, puis reviens actualiser l’import.")
         }
 
-        return "Punaise utilise Calendrier macOS. Ton agenda Google apparaît ici si ton compte Google est ajouté dans Comptes Internet."
+        return PunaiseL10n.string("Punaise utilise Calendrier macOS. Ton agenda Google apparaît ici si ton compte Google est ajouté dans Comptes Internet.")
+    }
+
+    private var candidateCountText: String {
+        let count = importer.events.count
+        return PunaiseLanguage.current == .english
+            ? "\(count) candidate\(count > 1 ? "s" : "") detected"
+            : "\(count) candidat\(count > 1 ? "s" : "") détecté\(count > 1 ? "s" : "")"
+    }
+
+    private var selectedCountText: String {
+        let count = selectedEvents.count
+        return PunaiseLanguage.current == .english
+            ? "\(count) selected"
+            : "\(count) sélectionné\(count > 1 ? "s" : "")"
     }
 }
 
 private struct CalendarEventImportRow: View {
     let event: CalendarEventCandidate
     @Binding var isSelected: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         Toggle(isOn: $isSelected) {
             HStack(spacing: 12) {
                 VStack(spacing: 2) {
@@ -291,10 +314,10 @@ private struct CalendarEventImportRow: View {
         }
         .toggleStyle(.checkbox)
         .padding(.leading, 12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(theme.panelSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isSelected ? Color.blue.opacity(0.24) : Color.black.opacity(0.07))
+                .stroke(isSelected ? Color.blue.opacity(0.24) : theme.hairline)
         )
     }
 

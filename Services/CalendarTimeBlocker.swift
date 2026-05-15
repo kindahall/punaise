@@ -8,7 +8,7 @@ enum CalendarTimeBlocker {
         let createEvent = {
             let now = Date()
             let event = EKEvent(eventStore: store)
-            event.title = "Punaise : \(reminder.displayTitle)"
+            event.title = "\(PunaiseL10n.string("Punaise")) : \(reminder.displayTitle)"
             event.notes = reminder.note
             event.startDate = now
             event.endDate = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
@@ -58,6 +58,6 @@ private enum CalendarTimeBlockerError: LocalizedError {
     case accessDenied
 
     var errorDescription: String? {
-        "Accès calendrier refusé."
+        PunaiseL10n.string("Accès calendrier refusé.")
     }
 }

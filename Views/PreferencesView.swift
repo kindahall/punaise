@@ -7,6 +7,8 @@ struct PreferencesView: View {
     let onShowOnboarding: () -> Void
     let onRequestNotifications: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(PunaisePreferenceKey.appearance) private var appearance = PunaiseAppearancePreference.system.rawValue
     @AppStorage(PunaisePreferenceKey.focusUrgenciesOnDesktop) private var focusUrgenciesOnDesktop = false
     @AppStorage(PunaisePreferenceKey.adaptiveDesktop) private var adaptiveDesktop = true
     @AppStorage(PunaisePreferenceKey.autoCleanDesktop) private var autoCleanDesktop = false
@@ -15,6 +17,8 @@ struct PreferencesView: View {
     @AppStorage(PunaisePreferenceKey.criticalLeadMinutes) private var criticalLeadMinutes = 120.0
     @AppStorage(PunaisePreferenceKey.encryptedBackups) private var encryptedBackups = true
     @AppStorage(PunaisePreferenceKey.iCloudDriveSync) private var iCloudDriveSync = false
+    @AppStorage(PunaisePreferenceKey.language) private var language = PunaiseLanguage.default.rawValue
+    @AppStorage(PunaisePreferenceKey.licenseKey) private var licenseKey = ""
     @State private var showsResetConfirmation = false
     @State private var backupMessage: SecureBackupMessage?
 
@@ -26,14 +30,51 @@ struct PreferencesView: View {
 
             Form {
                 Section {
+                    Picker("Langue", selection: $language) {
+                        ForEach(PunaiseLanguage.allCases) { language in
+                            Text(language.nativeTitle).tag(language.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Picker("Apparence", selection: $appearance) {
+                        ForEach(PunaiseAppearancePreference.allCases) { mode in
+                            Text(mode.title).tag(mode.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Interface")
+                }
+
+                Section {
+                    LicenseInlineActivationView()
+                } header: {
+                    Text("Licence")
+                }
+
+                Section {
                     Toggle("Afficher seulement les urgences sur le bureau", isOn: $focusUrgenciesOnDesktop)
+                        .disabled(!isPro)
                     Toggle("Bureau adaptatif", isOn: $adaptiveDesktop)
+                        .disabled(!isPro)
                     Toggle("Bureau propre automatique", isOn: $autoCleanDesktop)
+                        .disabled(!isPro)
 
                     Button {
+                        guard isPro else {
+                            PunaiseLicense.openPurchasePage()
+                            return
+                        }
                         desktopController.cleanDesktop(in: store)
                     } label: {
                         Label("Ranger maintenant", systemImage: "square.grid.2x2")
+                    }
+
+                    if !isPro {
+                        ProLockCard(feature: .smartDesktop, compact: true) { _ in
+                            PunaiseLicense.openPurchasePage()
+                        }
                     }
                 } header: {
                     Text("Bureau")
@@ -50,6 +91,7 @@ struct PreferencesView: View {
                         }
 
                         Slider(value: $watchLeadHours, in: 1...336, step: 1)
+                            .disabled(!isPro)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -62,6 +104,7 @@ struct PreferencesView: View {
                         }
 
                         Slider(value: $pressingLeadHours, in: 1...168, step: 1)
+                            .disabled(!isPro)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -74,6 +117,7 @@ struct PreferencesView: View {
                         }
 
                         Slider(value: $criticalLeadMinutes, in: 5...240, step: 5)
+                            .disabled(!isPro)
                     }
 
                     Button {
@@ -81,31 +125,52 @@ struct PreferencesView: View {
                     } label: {
                         Label("Autoriser les notifications", systemImage: "bell.badge")
                     }
+
+                    if !isPro {
+                        ProLockCard(feature: .advancedUrgency, compact: true) { _ in
+                            PunaiseLicense.openPurchasePage()
+                        }
+                    }
                 } header: {
                     Text("Urgence")
                 }
 
                 Section {
                     Toggle("Sauvegarde chiffrée", isOn: $encryptedBackups)
+                        .disabled(!isPro)
                     Toggle("Synchronisation iCloud Drive", isOn: $iCloudDriveSync)
-                        .disabled(!encryptedBackups || !store.secureBackupStatus.isICloudDriveAvailable)
+                        .disabled(!isPro || !encryptedBackups || !store.secureBackupStatus.isICloudDriveAvailable)
 
                     HStack(spacing: 10) {
                         Button {
+                            guard isPro else {
+                                PunaiseLicense.openPurchasePage()
+                                return
+                            }
                             backupMessage = store.writeSecureBackupNow()
                         } label: {
                             Label("Sauvegarder", systemImage: "lock.doc")
                         }
 
                         Button {
+                            guard isPro else {
+                                PunaiseLicense.openPurchasePage()
+                                return
+                            }
                             backupMessage = store.syncFromICloudDriveBackup()
                         } label: {
                             Label("Synchroniser", systemImage: "arrow.triangle.2.circlepath")
                         }
-                        .disabled(!iCloudDriveSync)
+                        .disabled(!isPro || !iCloudDriveSync)
                     }
 
                     BackupStatusView(status: store.secureBackupStatus, message: backupMessage)
+
+                    if !isPro {
+                        ProLockCard(feature: .backup, compact: true) { _ in
+                            PunaiseLicense.openPurchasePage()
+                        }
+                    }
                 } header: {
                     Text("Sauvegarde")
                 }
@@ -126,7 +191,7 @@ struct PreferencesView: View {
                     Button(role: .destructive) {
                         showsResetConfirmation = true
                     } label: {
-                        Label("Réinitialiser les exemples", systemImage: "arrow.counterclockwise")
+                        Label("Vider les Punaises", systemImage: "trash")
                     }
                 } header: {
                     Text("Produit")
@@ -136,15 +201,19 @@ struct PreferencesView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, 16)
         }
-        .frame(width: 620, height: 520)
+        .punaiseLocale(language)
+        .punaisePreferredAppearance(appearance)
+        .tint(PunaiseTheme(colorScheme: colorScheme).accent)
+        .background(PunaiseTheme(colorScheme: colorScheme).windowBase)
+        .frame(width: 620, height: 620)
         .onChange(of: focusUrgenciesOnDesktop) { _ in
-            desktopController.focusesUrgenciesOnly = focusUrgenciesOnDesktop
+            desktopController.focusesUrgenciesOnly = isPro && focusUrgenciesOnDesktop
         }
         .onChange(of: adaptiveDesktop) { _ in
-            desktopController.usesAdaptiveDesk = adaptiveDesktop
+            desktopController.usesAdaptiveDesk = isPro && adaptiveDesktop
         }
         .onChange(of: autoCleanDesktop) { _ in
-            if autoCleanDesktop {
+            if isPro && autoCleanDesktop {
                 desktopController.cleanDesktop(in: store)
             }
         }
@@ -157,13 +226,19 @@ struct PreferencesView: View {
         .onChange(of: criticalLeadMinutes) { _ in
             refreshUrgencyRules()
         }
+        .onChange(of: language) { _ in
+            store.localizeGeneratedDefaultTitlesForCurrentLanguage()
+            NotificationCenter.default.post(name: .punaiseLanguageDidChange, object: nil)
+        }
         .onChange(of: encryptedBackups) { _ in
+            guard isPro else { return }
             if !encryptedBackups {
                 iCloudDriveSync = false
             }
             backupMessage = store.writeSecureBackupNow()
         }
         .onChange(of: iCloudDriveSync) { _ in
+            guard isPro else { return }
             if iCloudDriveSync {
                 encryptedBackups = true
                 backupMessage = store.syncFromICloudDriveBackup()
@@ -172,15 +247,19 @@ struct PreferencesView: View {
             }
         }
         .confirmationDialog(
-            "Réinitialiser les exemples ?",
+            "Vider toutes les Punaises ?",
             isPresented: $showsResetConfirmation
         ) {
-            Button("Réinitialiser", role: .destructive) {
+            Button("Vider", role: .destructive) {
                 store.resetToExamples()
                 desktopController.cleanDesktop(in: store)
             }
             Button("Annuler", role: .cancel) {}
         }
+    }
+
+    private var isPro: Bool {
+        PunaiseLicense.isValid(licenseKey)
     }
 
     private var header: some View {
@@ -197,6 +276,7 @@ struct PreferencesView: View {
 
             Spacer()
         }
+        .foregroundStyle(PunaiseTheme(colorScheme: colorScheme).brand)
         .padding(22)
     }
 
@@ -223,13 +303,13 @@ private struct BackupStatusView: View {
                 .foregroundStyle(status.isICloudDriveAvailable ? Color.secondary : Color.orange)
 
             if let localModifiedAt = status.localModifiedAt {
-                Text("Dernière sauvegarde locale : \(PunaiseDateFormatting.shortDateTime.string(from: localModifiedAt))")
+                Text("\(PunaiseL10n.string("Dernière sauvegarde locale")) : \(PunaiseDateFormatting.shortDateTime.string(from: localModifiedAt))")
             } else {
-                Text("Aucune sauvegarde locale.")
+                Text(PunaiseL10n.string("Aucune sauvegarde locale."))
             }
 
             if let iCloudModifiedAt = status.iCloudModifiedAt {
-                Text("Dernière sauvegarde iCloud : \(PunaiseDateFormatting.shortDateTime.string(from: iCloudModifiedAt))")
+                Text("\(PunaiseL10n.string("Dernière sauvegarde iCloud")) : \(PunaiseDateFormatting.shortDateTime.string(from: iCloudModifiedAt))")
             }
 
             if let message {

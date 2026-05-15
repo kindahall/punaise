@@ -32,7 +32,7 @@ enum NaturalPunaiseParser {
         }
 
         return NaturalPunaiseDraft(
-            title: title.isEmpty ? (template?.defaultTitle ?? "Nouvelle Punaise") : title,
+            title: title.isEmpty ? (template?.defaultTitle ?? PunaiseL10n.string("Nouvelle Punaise")) : title,
             note: cleaned,
             deadline: deadline,
             urgency: urgency,

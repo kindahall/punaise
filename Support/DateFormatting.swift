@@ -1,63 +1,63 @@
 import Foundation
 
 enum PunaiseDateFormatting {
-    static let shortDateTime: DateFormatter = {
+    static var shortDateTime: DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.locale = PunaiseLanguage.current.locale
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter
-    }()
+    }
 
-    static let compactDateTime: DateFormatter = {
+    static var compactDateTime: DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
-        formatter.dateFormat = "d MMM — HH:mm"
+        formatter.locale = PunaiseLanguage.current.locale
+        formatter.dateFormat = PunaiseLanguage.current == .english ? "MMM d — h:mm a" : "d MMM — HH:mm"
         return formatter
-    }()
+    }
 
-    static let weekdayShort: DateFormatter = {
+    static var weekdayShort: DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.locale = PunaiseLanguage.current.locale
         formatter.dateFormat = "EEE d"
         return formatter
-    }()
+    }
 
-    static let monthYear: DateFormatter = {
+    static var monthYear: DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.locale = PunaiseLanguage.current.locale
         formatter.dateFormat = "LLLL yyyy"
         return formatter
-    }()
+    }
 
-    static let dayNumber: DateFormatter = {
+    static var dayNumber: DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.locale = PunaiseLanguage.current.locale
         formatter.dateFormat = "d"
         return formatter
-    }()
+    }
 
-    static let timeOnly: DateFormatter = {
+    static var timeOnly: DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
-        formatter.dateFormat = "HH:mm"
+        formatter.locale = PunaiseLanguage.current.locale
+        formatter.dateFormat = PunaiseLanguage.current == .english ? "h:mm a" : "HH:mm"
         return formatter
-    }()
+    }
 
     static func relativeDeadline(_ date: Date, now: Date) -> String {
         let calendar = Calendar.current
         let time = timeOnly.string(from: date)
 
         if calendar.isDateInToday(date) {
-            return "Aujourd’hui — \(time)"
+            return "\(PunaiseL10n.string("Aujourd’hui")) — \(time)"
         }
 
         if calendar.isDateInTomorrow(date) {
-            return "Demain — \(time)"
+            return "\(PunaiseL10n.string("Demain")) — \(time)"
         }
 
         if calendar.isDateInYesterday(date) {
-            return "Hier — \(time)"
+            return "\(PunaiseL10n.string("Hier")) — \(time)"
         }
 
         return compactDateTime.string(from: date)

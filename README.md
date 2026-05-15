@@ -37,6 +37,12 @@ Lancer l’app locale :
 ./script/build_and_run.sh
 ```
 
+Tester :
+
+```bash
+./script/test.sh
+```
+
 Créer les installateurs :
 
 ```bash
@@ -49,7 +55,25 @@ Les artefacts générés sont placés dans `dist/` et ne sont pas versionnés.
 
 Le script d’installation génère :
 
-- `dist/installers/Punaise-0.1.0.dmg`
-- `dist/installers/Punaise-0.1.0.pkg`
+- `dist/installers/Punaise-0.1.6.dmg`
+- `dist/installers/Punaise-0.1.6.pkg`
 
-Par défaut, la build locale est signée en ad-hoc. Pour une distribution publique, définir une identité Developer ID et notariser le DMG ou le PKG.
+Par défaut, la build locale est signée en ad-hoc. Elle peut servir aux tests internes, mais macOS Gatekeeper affichera un avertissement si elle est téléchargée depuis Internet.
+
+Pour une distribution publique, il faut signer avec un certificat Apple Developer ID, notariser les installateurs, puis stapler le ticket de notarisation :
+
+```bash
+security find-identity -v -p codesigning
+xcrun notarytool store-credentials "punaise-notary" \
+  --apple-id "compte@exemple.com" \
+  --team-id "TEAMID" \
+  --password "mot-de-passe-specifique-app"
+
+PUBLIC_RELEASE=1 \
+CODESIGN_IDENTITY="Developer ID Application: Nom (TEAMID)" \
+INSTALLER_SIGN_IDENTITY="Developer ID Installer: Nom (TEAMID)" \
+NOTARY_PROFILE="punaise-notary" \
+./script/build_installer.sh
+```
+
+En `PUBLIC_RELEASE=1`, le script refuse de produire une release si la signature Developer ID ou la notarisation manque.

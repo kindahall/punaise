@@ -4,6 +4,18 @@ import SwiftUI
 
 @MainActor
 final class DesktopStickyController: ObservableObject {
+    private enum StickyWindowMetrics {
+        static let cardSize = CGSize(width: 286, height: 184)
+        static let windowPadding: CGFloat = 16
+
+        static var windowSize: CGSize {
+            CGSize(
+                width: cardSize.width + windowPadding * 2,
+                height: cardSize.height + windowPadding * 2
+            )
+        }
+    }
+
     @Published var focusesUrgenciesOnly = false {
         didSet { sync(store?.reminders ?? []) }
     }
@@ -20,6 +32,9 @@ final class DesktopStickyController: ObservableObject {
     private var windows: [Reminder.ID: NSWindow] = [:]
     private var delegates: [Reminder.ID: StickyWindowDelegate] = [:]
     private var programmaticMoves = Set<Reminder.ID>()
+    private var appearingWindows = Set<Reminder.ID>()
+    private var manualDragIDs = Set<Reminder.ID>()
+    private var shouldSkipNextAutomaticClean = false
 
     func attach(store: ReminderStore) {
         self.store = store
@@ -71,6 +86,12 @@ final class DesktopStickyController: ObservableObject {
         }
     }
 
+    func consumeAutomaticCleanSkipAfterManualMove() -> Bool {
+        guard shouldSkipNextAutomaticClean else { return false }
+        shouldSkipNextAutomaticClean = false
+        return true
+    }
+
     private func sync(_ reminders: [Reminder]) {
         let visibleReminders = reminders.filter { reminder in
             guard reminder.isPinned && !reminder.isArchived else { return false }
@@ -106,7 +127,7 @@ final class DesktopStickyController: ObservableObject {
     }
 
     private func createWindow(for reminder: Reminder) {
-        let size = CGSize(width: 286, height: 184)
+        let size = StickyWindowMetrics.windowSize
         let position = reminder.desktopPosition ?? randomPosition()
         let frame = NSRect(
             x: position.x,
@@ -128,11 +149,15 @@ final class DesktopStickyController: ObservableObject {
         window.backgroundColor = .clear
         window.hasShadow = true
         window.level = .floating
+        window.alphaValue = 0
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isMovableByWindowBackground = true
 
         let delegate = StickyWindowDelegate(id: reminder.id) { [weak self] id, frame in
-            guard let self, !self.programmaticMoves.contains(id) else { return }
+            guard let self,
+                  !self.programmaticMoves.contains(id),
+                  !self.manualDragIDs.contains(id)
+            else { return }
 
             let position = DesktopPosition(x: frame.origin.x, y: frame.origin.y)
             if let current = self.store?.reminder(id: id)?.desktopPosition,
@@ -146,12 +171,23 @@ final class DesktopStickyController: ObservableObject {
         window.delegate = delegate
         delegates[reminder.id] = delegate
         windows[reminder.id] = window
+        appearingWindows.insert(reminder.id)
 
-        update(window: window, with: reminder)
+        update(window: window, with: reminder, animateEntrance: true)
         window.orderFrontRegardless()
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            window.animator().alphaValue = 1
+        }
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            self?.appearingWindows.remove(reminder.id)
+        }
     }
 
-    private func update(window: NSWindow, with reminder: Reminder) {
+    private func update(window: NSWindow, with reminder: Reminder, animateEntrance: Bool = false) {
         window.title = reminder.displayTitle
         let status = reminder.status()
         let stage = reminder.antiForgetStage()
@@ -166,18 +202,44 @@ final class DesktopStickyController: ObservableObject {
             }
         }
 
-        window.contentView = NSHostingView(
-            rootView: FloatingStickyView(
-                reminder: reminder,
-                onOpen: { [weak self] in
-                    self?.activateApp()
-                    self?.onOpenReminder?(reminder.id)
-                },
-                onUnpin: { [weak self] in
-                    self?.store?.setPinned(reminder.id, isPinned: false)
-                }
-            )
+        let shouldAnimateEntrance = animateEntrance || appearingWindows.contains(reminder.id)
+        let rootView = FloatingStickyView(
+            reminder: reminder,
+            appearsAnimated: shouldAnimateEntrance,
+            onOpen: { [weak self] in
+                self?.activateApp()
+                self?.onOpenReminder?(reminder.id)
+            },
+            onUnpin: { [weak self] in
+                self?.store?.setPinned(reminder.id, isPinned: false)
+            }
         )
+
+        let onDragEnded: (NSRect) -> Void = { [weak self] frame in
+            self?.manualDragIDs.remove(reminder.id)
+            self?.shouldSkipNextAutomaticClean = true
+            self?.store?.setDesktopPosition(
+                reminder.id,
+                position: DesktopPosition(x: frame.origin.x, y: frame.origin.y)
+            )
+        }
+
+        let onDragBegan: () -> Void = { [weak self] in
+            self?.manualDragIDs.insert(reminder.id)
+            UserDefaults.standard.set(false, forKey: PunaisePreferenceKey.autoCleanDesktop)
+        }
+
+        if let hostingView = window.contentView as? DraggableStickyHostingView<FloatingStickyView> {
+            hostingView.rootView = rootView
+            hostingView.onDragBegan = onDragBegan
+            hostingView.onDragEnded = onDragEnded
+        } else {
+            window.contentView = DraggableStickyHostingView(
+                rootView: rootView,
+                onDragBegan: onDragBegan,
+                onDragEnded: onDragEnded
+            )
+        }
 
         if usesAdaptiveDesk && stage.shouldReturnToFront {
             window.orderFrontRegardless()
@@ -194,8 +256,8 @@ final class DesktopStickyController: ObservableObject {
 
     private func randomPosition() -> DesktopPosition {
         let visibleFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 80, y: 80, width: 1200, height: 800)
-        let width: CGFloat = 286
-        let height: CGFloat = 184
+        let width = StickyWindowMetrics.windowSize.width
+        let height = StickyWindowMetrics.windowSize.height
         let minX = visibleFrame.minX + 28
         let maxX = max(minX, visibleFrame.maxX - width - 28)
         let minY = visibleFrame.minY + 48
@@ -230,8 +292,8 @@ final class DesktopStickyController: ObservableObject {
     }
 
     private func managedPosition(zone: DesktopLayoutZone, index: Int, visibleFrame: NSRect) -> DesktopPosition {
-        let width: CGFloat = 286
-        let height: CGFloat = 184
+        let width = StickyWindowMetrics.windowSize.width
+        let height = StickyWindowMetrics.windowSize.height
         let spacing: CGFloat = 16
         let row = index / zone.columns
         let column = index % zone.columns
@@ -322,5 +384,80 @@ private final class StickyWindowDelegate: NSObject, NSWindowDelegate {
     func windowDidMove(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         onMove(id, window.frame)
+    }
+}
+
+private final class DraggableStickyHostingView<Content: View>: NSHostingView<Content> {
+    var onDragBegan: (() -> Void)?
+    var onDragEnded: ((NSRect) -> Void)?
+
+    private var dragStartMouseLocation: NSPoint?
+    private var dragStartWindowOrigin: NSPoint?
+    private var didDrag = false
+
+    required init(rootView: Content) {
+        super.init(rootView: rootView)
+    }
+
+    convenience init(
+        rootView: Content,
+        onDragBegan: (() -> Void)? = nil,
+        onDragEnded: ((NSRect) -> Void)? = nil
+    ) {
+        self.init(rootView: rootView)
+        self.onDragBegan = onDragBegan
+        self.onDragEnded = onDragEnded
+    }
+
+    @MainActor @preconcurrency required dynamic init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    override var mouseDownCanMoveWindow: Bool {
+        true
+    }
+
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        dragStartMouseLocation = NSEvent.mouseLocation
+        dragStartWindowOrigin = window?.frame.origin
+        super.mouseDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard
+            let window,
+            let dragStartMouseLocation,
+            let dragStartWindowOrigin
+        else {
+            super.mouseDragged(with: event)
+            return
+        }
+
+        let currentMouseLocation = NSEvent.mouseLocation
+        let nextOrigin = NSPoint(
+            x: dragStartWindowOrigin.x + currentMouseLocation.x - dragStartMouseLocation.x,
+            y: dragStartWindowOrigin.y + currentMouseLocation.y - dragStartMouseLocation.y
+        )
+
+        if !didDrag {
+            didDrag = true
+            onDragBegan?()
+        }
+        window.setFrameOrigin(nextOrigin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if didDrag, let window {
+            onDragEnded?(window.frame)
+        }
+
+        dragStartMouseLocation = nil
+        dragStartWindowOrigin = nil
+        didDrag = false
+        super.mouseUp(with: event)
     }
 }

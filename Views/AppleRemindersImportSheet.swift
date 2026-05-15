@@ -5,6 +5,7 @@ struct AppleRemindersImportSheet: View {
     let onImport: ([ReminderCandidate]) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedCandidateIDs: Set<String> = []
 
     private var selectedCandidates: [ReminderCandidate] {
@@ -12,6 +13,8 @@ struct AppleRemindersImportSheet: View {
     }
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         VStack(spacing: 0) {
             header
 
@@ -30,17 +33,20 @@ struct AppleRemindersImportSheet: View {
             footer
         }
         .frame(width: 820, height: 620)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(red: 1.0, green: 0.90, blue: 0.74).opacity(0.26),
-                    Color(nsColor: .windowBackgroundColor)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background {
+            theme.windowBase
+            if theme.isDark {
+                LinearGradient(
+                    colors: [
+                        theme.accent.opacity(0.12),
+                        .clear,
+                        theme.linkBlue.opacity(0.08)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
         .onAppear {
             if importer.hasAccess {
                 importer.refresh()
@@ -122,7 +128,7 @@ struct AppleRemindersImportSheet: View {
     private var connectedContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("\(importer.candidates.count) rappel\(importer.candidates.count > 1 ? "s" : "") retenu\(importer.candidates.count > 1 ? "s" : "")", systemImage: "checklist")
+                Label(candidateCountText, systemImage: "checklist")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.secondary)
 
@@ -195,7 +201,7 @@ struct AppleRemindersImportSheet: View {
 
     private var footer: some View {
         HStack {
-            Text("\(selectedCandidates.count) sélectionné\(selectedCandidates.count > 1 ? "s" : "")")
+            Text(selectedCountText)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.secondary)
 
@@ -204,7 +210,7 @@ struct AppleRemindersImportSheet: View {
             Button("Annuler") {
                 dismiss()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BouncyPlainButtonStyle())
             .foregroundStyle(.secondary)
 
             Button {
@@ -222,18 +228,35 @@ struct AppleRemindersImportSheet: View {
 
     private var permissionText: String {
         if importer.isDenied {
-            return "Autorise Punaise dans Confidentialité > Rappels, puis reviens actualiser l’import."
+            return PunaiseL10n.string("Autorise Punaise dans Confidentialité > Rappels, puis reviens actualiser l’import.")
         }
 
-        return "Punaise utilise les rappels macOS et ne retient que ceux qui méritent de prendre forme sur le bureau."
+        return PunaiseL10n.string("Punaise utilise les rappels macOS et ne retient que ceux qui méritent de prendre forme sur le bureau.")
+    }
+
+    private var candidateCountText: String {
+        let count = importer.candidates.count
+        return PunaiseLanguage.current == .english
+            ? "\(count) reminder\(count > 1 ? "s" : "") kept"
+            : "\(count) rappel\(count > 1 ? "s" : "") retenu\(count > 1 ? "s" : "")"
+    }
+
+    private var selectedCountText: String {
+        let count = selectedCandidates.count
+        return PunaiseLanguage.current == .english
+            ? "\(count) selected"
+            : "\(count) sélectionné\(count > 1 ? "s" : "")"
     }
 }
 
 private struct AppleReminderImportRow: View {
     let candidate: ReminderCandidate
     @Binding var isSelected: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         Toggle(isOn: $isSelected) {
             HStack(spacing: 12) {
                 VStack(spacing: 2) {
@@ -289,10 +312,10 @@ private struct AppleReminderImportRow: View {
         }
         .toggleStyle(.checkbox)
         .padding(.leading, 12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(theme.panelSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isSelected ? Color.orange.opacity(0.26) : Color.black.opacity(0.07))
+                .stroke(isSelected ? Color.orange.opacity(0.26) : theme.hairline)
         )
     }
 

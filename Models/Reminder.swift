@@ -116,7 +116,7 @@ struct Reminder: Identifiable, Codable, Equatable {
 
     var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Sans titre" : trimmed
+        return trimmed.isEmpty ? PunaiseL10n.string("Sans titre") : trimmed
     }
 
     func status(at date: Date = Date()) -> ReminderStatus {
@@ -222,7 +222,7 @@ struct Reminder: Identifiable, Codable, Equatable {
 
     var projectLabel: String {
         let trimmed = project.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Sans projet" : trimmed
+        return trimmed.isEmpty ? PunaiseL10n.string("Sans projet") : trimmed
     }
 
     var tagLine: String {
@@ -270,12 +270,12 @@ struct PunaisePressureBreakdown: Equatable {
 
     var factors: [PunaisePressureFactor] {
         [
-            PunaisePressureFactor(id: "importance", title: "Importance", value: importance, systemImage: "exclamationmark.circle"),
-            PunaisePressureFactor(id: "proximity", title: "Proximité", value: proximity, systemImage: "clock"),
-            PunaisePressureFactor(id: "lateness", title: "Retard", value: lateness, systemImage: "moon.zzz"),
-            PunaisePressureFactor(id: "postponements", title: "Reports", value: postponements, systemImage: "clock.arrow.circlepath"),
-            PunaisePressureFactor(id: "context", title: "Contexte", value: context, systemImage: "link"),
-            PunaisePressureFactor(id: "ignored", title: "Anti-oubli", value: ignored, systemImage: "bell.badge")
+            PunaisePressureFactor(id: "importance", title: PunaiseL10n.string("Importance"), value: importance, systemImage: "exclamationmark.circle"),
+            PunaisePressureFactor(id: "proximity", title: PunaiseL10n.string("Proximité"), value: proximity, systemImage: "clock"),
+            PunaisePressureFactor(id: "lateness", title: PunaiseL10n.string("Retard"), value: lateness, systemImage: "moon.zzz"),
+            PunaisePressureFactor(id: "postponements", title: PunaiseL10n.string("Reports"), value: postponements, systemImage: "clock.arrow.circlepath"),
+            PunaisePressureFactor(id: "context", title: PunaiseL10n.string("Contexte"), value: context, systemImage: "link"),
+            PunaisePressureFactor(id: "ignored", title: PunaiseL10n.string("Anti-oubli"), value: ignored, systemImage: "bell.badge")
         ]
         .filter { $0.value > 0 }
     }
@@ -302,15 +302,15 @@ enum AntiForgetStage: Int, Comparable {
     var title: String {
         switch self {
         case .quiet:
-            return "Stable"
+            return PunaiseL10n.string("Stable")
         case .halo:
-            return "Halo"
+            return PunaiseL10n.string("Halo")
         case .vibrate:
-            return "Insistant"
+            return PunaiseL10n.string("Insistant")
         case .front:
-            return "Premier plan"
+            return PunaiseL10n.string("Premier plan")
         case .black:
-            return "Noire"
+            return PunaiseL10n.string("Noire")
         }
     }
 
@@ -372,11 +372,11 @@ enum Urgency: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .urgent:
-            return "Urgent"
+            return PunaiseL10n.string("Urgent")
         case .neutral:
-            return "Neutre"
+            return PunaiseL10n.string("Neutre")
         case .relaxed:
-            return "Pas urgent"
+            return PunaiseL10n.string("Pas urgent")
         }
     }
 
@@ -388,6 +388,17 @@ enum Urgency: String, CaseIterable, Codable, Identifiable {
             return "minus.circle"
         case .relaxed:
             return "arrow.down.circle"
+        }
+    }
+
+    var nextQuickState: Urgency {
+        switch self {
+        case .relaxed:
+            return .neutral
+        case .neutral:
+            return .urgent
+        case .urgent:
+            return .relaxed
         }
     }
 
@@ -446,15 +457,15 @@ enum ReminderStatus: Equatable, CaseIterable {
     var title: String {
         switch self {
         case .calm:
-            return "Calme"
+            return PunaiseL10n.string("Calme")
         case .watching:
-            return "À surveiller"
+            return PunaiseL10n.string("À surveiller")
         case .pressing:
-            return "Pressant"
+            return PunaiseL10n.string("Pressant")
         case .critical:
-            return "Critique"
+            return PunaiseL10n.string("Critique")
         case .overdue:
-            return "Punaise noire"
+            return PunaiseL10n.string("Punaise noire")
         }
     }
 
@@ -499,13 +510,13 @@ enum RecurrenceRule: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .none:
-            return "Une fois"
+            return PunaiseL10n.string("Une fois")
         case .daily:
-            return "Chaque jour"
+            return PunaiseL10n.string("Chaque jour")
         case .weekly:
-            return "Chaque semaine"
+            return PunaiseL10n.string("Chaque semaine")
         case .monthly:
-            return "Chaque mois"
+            return PunaiseL10n.string("Chaque mois")
         }
     }
 
@@ -537,19 +548,19 @@ enum PunaiseTemplate: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .facture:
-            return "Facture"
+            return PunaiseL10n.string("Facture")
         case .client:
-            return "Client"
+            return PunaiseL10n.string("Client")
         case .appel:
-            return "Appel"
+            return PunaiseL10n.string("Appel")
         case .livraison:
-            return "Livraison"
+            return PunaiseL10n.string("Livraison")
         case .contrat:
-            return "Contrat"
+            return PunaiseL10n.string("Contrat")
         case .projet:
-            return "Projet"
+            return PunaiseL10n.string("Projet")
         case .administratif:
-            return "Administratif"
+            return PunaiseL10n.string("Administratif")
         }
     }
 
@@ -575,38 +586,38 @@ enum PunaiseTemplate: String, CaseIterable, Codable, Identifiable {
     var defaultTitle: String {
         switch self {
         case .facture:
-            return "Payer facture"
+            return PunaiseL10n.string("Payer facture")
         case .client:
-            return "Relancer client"
+            return PunaiseL10n.string("Relancer client")
         case .appel:
-            return "Appeler"
+            return PunaiseL10n.string("Appeler")
         case .livraison:
-            return "Confirmer livraison"
+            return PunaiseL10n.string("Confirmer livraison")
         case .contrat:
-            return "Envoyer contrat"
+            return PunaiseL10n.string("Envoyer contrat")
         case .projet:
-            return "Avancer projet"
+            return PunaiseL10n.string("Avancer projet")
         case .administratif:
-            return "Traiter administratif"
+            return PunaiseL10n.string("Traiter administratif")
         }
     }
 
     var defaultNote: String {
         switch self {
         case .facture:
-            return "Vérifier le montant, valider le paiement et terminer la Punaise."
+            return PunaiseL10n.string("Vérifier le montant, valider le paiement et terminer la Punaise.")
         case .client:
-            return "Faire le point et obtenir une réponse avant l’échéance."
+            return PunaiseL10n.string("Faire le point et obtenir une réponse avant l’échéance.")
         case .appel:
-            return "Préparer le sujet, appeler, puis noter la suite."
+            return PunaiseL10n.string("Préparer le sujet, appeler, puis noter la suite.")
         case .livraison:
-            return "Confirmer le créneau, le contact et le statut de livraison."
+            return PunaiseL10n.string("Confirmer le créneau, le contact et le statut de livraison.")
         case .contrat:
-            return "Relire, signer ou envoyer la version finale."
+            return PunaiseL10n.string("Relire, signer ou envoyer la version finale.")
         case .projet:
-            return "Identifier la prochaine action, ouvrir le dossier lié et avancer sans perdre le contexte."
+            return PunaiseL10n.string("Identifier la prochaine action, ouvrir le dossier lié et avancer sans perdre le contexte.")
         case .administratif:
-            return "Rassembler les pièces, vérifier la date limite et terminer le dossier."
+            return PunaiseL10n.string("Rassembler les pièces, vérifier la date limite et terminer le dossier.")
         }
     }
 
@@ -677,15 +688,15 @@ enum AttachmentKind: String, CaseIterable, Codable, Identifiable {
     var title: String {
         switch self {
         case .app:
-            return "App"
+            return PunaiseL10n.string("App")
         case .file:
-            return "Fichier"
+            return PunaiseL10n.string("Fichier")
         case .folder:
-            return "Dossier"
+            return PunaiseL10n.string("Dossier")
         case .website:
-            return "Site"
+            return PunaiseL10n.string("Site")
         case .mail:
-            return "Mail"
+            return PunaiseL10n.string("Mail")
         }
     }
 

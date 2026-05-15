@@ -3,10 +3,14 @@ import SwiftUI
 struct UrgencyNowWindow: View {
     @ObservedObject var store: ReminderStore
     let onOpen: (Reminder.ID) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(PunaisePreferenceKey.appearance) private var appearance = PunaiseAppearancePreference.system.rawValue
+    @AppStorage(PunaisePreferenceKey.language) private var language = PunaiseLanguage.default.rawValue
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let items = urgentReminders(at: context.date)
+            let theme = PunaiseTheme(colorScheme: colorScheme)
 
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 10) {
@@ -49,8 +53,14 @@ struct UrgencyNowWindow: View {
             }
             .padding(18)
             .frame(width: 390, height: 360)
-            .background(.regularMaterial)
+            .background(theme.windowLift)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(theme.hairline)
+            )
         }
+        .punaiseLocale(language)
+        .punaisePreferredAppearance(appearance)
     }
 
     private var emptyState: some View {
@@ -59,10 +69,10 @@ struct UrgencyNowWindow: View {
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(.green)
 
-            Text("Rien de critique")
+            Text(PunaiseL10n.string("Rien de critique"))
                 .font(.system(size: 15, weight: .bold))
 
-            Text("Les Punaises calmes restent dans le tableau.")
+            Text(PunaiseL10n.string("Les Punaises calmes restent dans le tableau."))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
         }
@@ -91,8 +101,11 @@ private struct UrgencyNowRow: View {
     let onOpen: () -> Void
     let onPostpone: () -> Void
     let onComplete: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         HStack(spacing: 10) {
             Circle()
                 .fill(color)
@@ -113,7 +126,7 @@ private struct UrgencyNowRow: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BouncyPlainButtonStyle())
 
             Text("\(reminder.pressureScore(at: now))")
                 .font(.system(size: 11, weight: .bold))
@@ -125,19 +138,19 @@ private struct UrgencyNowRow: View {
                 Image(systemName: "clock.arrow.circlepath")
                     .frame(width: 24, height: 24)
             }
-            .buttonStyle(.plain)
-            .help("Reporter d’une heure")
+            .buttonStyle(BouncyPlainButtonStyle(pressedScale: 0.84))
+            .help(PunaiseL10n.string("Reporter d’une heure"))
 
             Button(action: onComplete) {
                 Image(systemName: "checkmark.circle")
                     .frame(width: 24, height: 24)
             }
-            .buttonStyle(.plain)
-            .help("Terminer")
+            .buttonStyle(BouncyPlainButtonStyle(pressedScale: 0.84))
+            .help(PunaiseL10n.string("Terminer"))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(theme.panelSurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(color.opacity(0.18), lineWidth: 1)

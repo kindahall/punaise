@@ -10,6 +10,10 @@ enum PunaisePreferenceKey {
     static let criticalLeadMinutes = "punaise.criticalLeadMinutes"
     static let encryptedBackups = "punaise.encryptedBackups"
     static let iCloudDriveSync = "punaise.iCloudDriveSync"
+    static let appearance = "punaise.appearance"
+    static let language = "punaise.language"
+    static let lastTemplate = "punaise.lastTemplate"
+    static let licenseKey = "punaise.licenseKey"
 }
 
 enum PunaisePreferences {
@@ -17,12 +21,16 @@ enum PunaisePreferences {
         UserDefaults.standard.register(defaults: [
             PunaisePreferenceKey.focusUrgenciesOnDesktop: false,
             PunaisePreferenceKey.adaptiveDesktop: true,
-            PunaisePreferenceKey.autoCleanDesktop: true,
+            PunaisePreferenceKey.autoCleanDesktop: false,
             PunaisePreferenceKey.watchLeadHours: 72.0,
             PunaisePreferenceKey.pressingLeadHours: 24.0,
             PunaisePreferenceKey.criticalLeadMinutes: 120.0,
             PunaisePreferenceKey.encryptedBackups: true,
-            PunaisePreferenceKey.iCloudDriveSync: false
+            PunaisePreferenceKey.iCloudDriveSync: false,
+            PunaisePreferenceKey.appearance: PunaiseAppearancePreference.system.rawValue,
+            PunaisePreferenceKey.language: PunaiseLanguage.default.rawValue,
+            PunaisePreferenceKey.lastTemplate: PunaiseTemplate.facture.rawValue,
+            PunaisePreferenceKey.licenseKey: ""
         ])
     }
 
@@ -42,10 +50,10 @@ enum PunaisePreferences {
     }
 
     static var encryptedBackupsEnabled: Bool {
-        UserDefaults.standard.object(forKey: PunaisePreferenceKey.encryptedBackups) as? Bool ?? true
+        PunaiseLicense.isPro && (UserDefaults.standard.object(forKey: PunaisePreferenceKey.encryptedBackups) as? Bool ?? true)
     }
 
     static var iCloudDriveSyncEnabled: Bool {
-        UserDefaults.standard.bool(forKey: PunaisePreferenceKey.iCloudDriveSync)
+        PunaiseLicense.isPro && UserDefaults.standard.bool(forKey: PunaisePreferenceKey.iCloudDriveSync)
     }
 }

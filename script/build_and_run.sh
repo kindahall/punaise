@@ -28,12 +28,17 @@ cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 cp "$ROOT_DIR/Resources/Punaise.icns" "$APP_RESOURCES/Punaise.icns"
 cp "$ROOT_DIR/Resources/PunaiseIcon1024.png" "$APP_RESOURCES/PunaiseIcon1024.png"
+find "$ROOT_DIR/Resources" -maxdepth 1 -type d -name "*.lproj" -exec cp -R {} "$APP_RESOURCES/" \;
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundleAllowMixedLocalizations</key>
+  <true/>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>fr</string>
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIdentifier</key>

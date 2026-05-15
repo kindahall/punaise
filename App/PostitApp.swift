@@ -11,12 +11,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindow: NSWindow?
     private var preferencesWindow: NSWindow?
     private var urgencyNowWindow: NSWindow?
+    private var languageObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         PunaisePreferences.registerDefaults()
         NSApp.setActivationPolicy(.regular)
         configureApplicationIcon()
         configureMenus()
+        observeLanguageChanges()
         configureStatusItem()
         configureGlobalShortcut()
         ReminderNotificationScheduler.requestAuthorization(for: store.reminders)
@@ -38,6 +40,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    deinit {
+        if let languageObserver {
+            NotificationCenter.default.removeObserver(languageObserver)
+        }
+    }
+
     @objc private func createReminderMenuItem() {
         createReminder()
     }
@@ -56,15 +64,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openCalendarImportMenuItem() {
         showMainWindow()
+        guard requirePro(.imports) else { return }
         NotificationCenter.default.post(name: .postitOpenCalendarImport, object: nil)
     }
 
     @objc private func openRemindersImportMenuItem() {
         showMainWindow()
+        guard requirePro(.imports) else { return }
         NotificationCenter.default.post(name: .postitOpenRemindersImport, object: nil)
     }
 
     @objc private func showUrgencyNowMenuItem() {
+        guard requirePro(.advancedUrgency) else { return }
         showUrgencyNowWindow()
     }
 
@@ -73,10 +84,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func cleanDesktopMenuItem() {
+        guard requirePro(.smartDesktop) else { return }
         desktopController.cleanDesktop(in: store)
     }
 
     @objc private func toggleFocusMenuItem() {
+        guard requirePro(.smartDesktop) else { return }
         let key = PunaisePreferenceKey.focusUrgenciesOnDesktop
         let nextValue = !UserDefaults.standard.bool(forKey: key)
         UserDefaults.standard.set(nextValue, forKey: key)
@@ -84,12 +97,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func createReminder() {
+        guard canCreateReminder() else { return }
         let reminder = store.createReminder()
         desktopController.pin(reminder.id, in: store)
         showMainWindow(selecting: reminder.id)
     }
 
     private func createFirstLaunchPunaise() {
+        guard canCreateReminder() else { return }
         let reminder = store.createFirstLaunchPunaise()
         desktopController.pin(reminder.id, in: store)
         showMainWindow(selecting: reminder.id)
@@ -107,6 +122,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureStatusItem() {
+        if let statusItem {
+            NSStatusBar.system.removeStatusItem(statusItem)
+            self.statusItem = nil
+        }
+
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "Punaise")
         item.button?.imagePosition = .imageLeading
@@ -115,14 +135,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(
             NSMenuItem(
-                title: "Nouvelle Punaise",
+                title: L("Nouvelle Punaise"),
                 action: #selector(createReminderMenuItem),
                 keyEquivalent: ""
             )
         )
         menu.addItem(
             NSMenuItem(
-                title: "Afficher Punaise",
+                title: L("Afficher Punaise"),
                 action: #selector(showMainWindowMenuItem),
                 keyEquivalent: ""
             )
@@ -144,28 +164,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(
             NSMenuItem(
-                title: "Bureau propre",
+                title: L("Bureau propre"),
                 action: #selector(cleanDesktopMenuItem),
                 keyEquivalent: ""
             )
         )
         menu.addItem(
             NSMenuItem(
-                title: "Ce qui presse",
+                title: L("Ce qui presse"),
                 action: #selector(showUrgencyNowMenuItem),
                 keyEquivalent: ""
             )
         )
         menu.addItem(
             NSMenuItem(
-                title: "Mode Focus",
+                title: L("Mode Focus"),
                 action: #selector(toggleFocusMenuItem),
                 keyEquivalent: ""
             )
         )
         menu.addItem(
             NSMenuItem(
-                title: "Préférences",
+                title: L("Préférences"),
                 action: #selector(showPreferencesMenuItem),
                 keyEquivalent: ""
             )
@@ -173,7 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(
             NSMenuItem(
-                title: "Quitter Punaise",
+                title: L("Quitter Punaise"),
                 action: #selector(NSApplication.terminate(_:)),
                 keyEquivalent: ""
             )
@@ -217,6 +237,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindow?.makeKeyAndOrderFront(nil)
     }
 
+    private var isPro: Bool {
+        PunaiseLicense.isPro
+    }
+
+    private func canCreateReminder() -> Bool {
+        if isPro || store.activeReminderCount < PunaiseLicense.freeActiveLimit {
+            return true
+        }
+
+        showLicensePrompt(.unlimitedPunaises)
+        return false
+    }
+
+    @discardableResult
+    private func requirePro(_ feature: PunaiseProFeature) -> Bool {
+        if isPro {
+            return true
+        }
+
+        showLicensePrompt(feature)
+        return false
+    }
+
+    private func showLicensePrompt(_ feature: PunaiseProFeature) {
+        showMainWindow()
+        NotificationCenter.default.post(name: .punaiseShowLicense, object: feature)
+    }
+
     private func showOnboardingWindow() {
         if onboardingWindow == nil {
             let view = OnboardingView(
@@ -240,7 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Bienvenue dans Punaise"
+            window.title = L("Bienvenue dans Punaise")
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
@@ -272,7 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Préférences"
+            window.title = L("Préférences")
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
@@ -301,7 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Ce qui presse"
+            window.title = L("Ce qui presse")
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
@@ -323,21 +371,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenu = NSMenu()
         appMenu.addItem(
             NSMenuItem(
-                title: "À propos de Punaise",
+                title: L("À propos de Punaise"),
                 action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                 keyEquivalent: ""
             )
         )
         appMenu.addItem(
             NSMenuItem(
-                title: "Préférences…",
+                title: L("Préférences…"),
                 action: #selector(showPreferencesMenuItem),
                 keyEquivalent: ","
             )
         )
         appMenu.addItem(
             NSMenuItem(
-                title: "Revoir l’introduction",
+                title: L("Revoir l’introduction"),
                 action: #selector(showOnboardingMenuItem),
                 keyEquivalent: ""
             )
@@ -345,7 +393,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(.separator())
         appMenu.addItem(
             NSMenuItem(
-                title: "Quitter Punaise",
+                title: L("Quitter Punaise"),
                 action: #selector(NSApplication.terminate(_:)),
                 keyEquivalent: "q"
             )
@@ -354,16 +402,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appMenuItem)
 
         let fileMenuItem = NSMenuItem()
-        let fileMenu = NSMenu(title: "Fichier")
+        let fileMenu = NSMenu(title: L("Fichier"))
         let newPunaiseItem = NSMenuItem(
-            title: "Nouvelle Punaise",
+            title: L("Nouvelle Punaise"),
             action: #selector(createReminderMenuItem),
             keyEquivalent: "n"
         )
         fileMenu.addItem(newPunaiseItem)
 
         let quickPunaiseItem = NSMenuItem(
-            title: "Nouvelle Punaise rapide",
+            title: L("Nouvelle Punaise rapide"),
             action: #selector(createReminderMenuItem),
             keyEquivalent: "p"
         )
@@ -373,14 +421,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(.separator())
         fileMenu.addItem(
             NSMenuItem(
-                title: "Importer Google Agenda…",
+                title: L("Importer Google Agenda…"),
                 action: #selector(openCalendarImportMenuItem),
                 keyEquivalent: "g"
             )
         )
         fileMenu.addItem(
             NSMenuItem(
-                title: "Importer Apple Reminders…",
+                title: L("Importer Apple Reminders…"),
                 action: #selector(openRemindersImportMenuItem),
                 keyEquivalent: "r"
             )
@@ -388,28 +436,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(.separator())
         fileMenu.addItem(
             NSMenuItem(
-                title: "Bureau propre",
+                title: L("Bureau propre"),
                 action: #selector(cleanDesktopMenuItem),
                 keyEquivalent: "b"
             )
         )
         fileMenu.addItem(
             NSMenuItem(
-                title: "Ce qui presse",
+                title: L("Ce qui presse"),
                 action: #selector(showUrgencyNowMenuItem),
                 keyEquivalent: ""
             )
         )
         fileMenu.addItem(
             NSMenuItem(
-                title: "Mode Focus",
+                title: L("Mode Focus"),
                 action: #selector(toggleFocusMenuItem),
                 keyEquivalent: "u"
             )
         )
         fileMenu.addItem(
             NSMenuItem(
-                title: "Autoriser les notifications",
+                title: L("Autoriser les notifications"),
                 action: #selector(requestNotificationsMenuItem),
                 keyEquivalent: ""
             )
@@ -417,7 +465,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(.separator())
         fileMenu.addItem(
             NSMenuItem(
-                title: "Afficher Punaise",
+                title: L("Afficher Punaise"),
                 action: #selector(showMainWindowMenuItem),
                 keyEquivalent: "0"
             )
@@ -426,17 +474,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(fileMenuItem)
 
         let windowMenuItem = NSMenuItem()
-        let windowMenu = NSMenu(title: "Fenêtre")
+        let windowMenu = NSMenu(title: L("Fenêtre"))
         windowMenu.addItem(
             NSMenuItem(
-                title: "Afficher Punaise",
+                title: L("Afficher Punaise"),
                 action: #selector(showMainWindowMenuItem),
                 keyEquivalent: "1"
             )
         )
         windowMenu.addItem(
             NSMenuItem(
-                title: "Ce qui presse",
+                title: L("Ce qui presse"),
                 action: #selector(showUrgencyNowMenuItem),
                 keyEquivalent: "2"
             )
@@ -446,6 +494,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    private func observeLanguageChanges() {
+        languageObserver = NotificationCenter.default.addObserver(
+            forName: .punaiseLanguageDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshLocalizedChrome()
+            }
+        }
+    }
+
+    private func refreshLocalizedChrome() {
+        configureMenus()
+        configureStatusItem()
+        onboardingWindow?.title = L("Bienvenue dans Punaise")
+        preferencesWindow?.title = L("Préférences")
+        urgencyNowWindow?.title = L("Ce qui presse")
+    }
+
+    private func L(_ key: String) -> String {
+        PunaiseL10n.string(key)
     }
 
     private func configureApplicationIcon() {

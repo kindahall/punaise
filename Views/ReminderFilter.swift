@@ -8,7 +8,7 @@ enum ReminderFilter: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var titleKey: String {
         switch self {
         case .all:
             return "Tableau"
@@ -19,6 +19,10 @@ enum ReminderFilter: String, CaseIterable, Identifiable {
         case .history:
             return "Historique"
         }
+    }
+
+    var title: String {
+        PunaiseL10n.string(titleKey)
     }
 
     func matches(_ reminder: Reminder, now: Date) -> Bool {

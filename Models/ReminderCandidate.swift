@@ -12,7 +12,7 @@ struct ReminderCandidate: Identifiable, Equatable {
 
     var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Rappel sans titre" : trimmed
+        return trimmed.isEmpty ? PunaiseL10n.string("Rappel sans titre") : trimmed
     }
 
     var suggestedUrgency: Urgency {
@@ -88,7 +88,7 @@ struct ReminderCandidate: Identifiable, Equatable {
 
     var deadlineSignal: String {
         if priority >= 1 && priority <= 4 {
-            return "Priorité"
+            return PunaiseL10n.string("Priorité")
         }
 
         let text = "\(title) \(notes)".lowercased()
@@ -98,10 +98,10 @@ struct ReminderCandidate: Identifiable, Equatable {
         }
 
         if deadline < Date() {
-            return "En retard"
+            return PunaiseL10n.string("En retard")
         }
 
-        return "Échéance"
+        return PunaiseL10n.string("Échéance")
     }
 
     var generatedNote: String {
@@ -113,10 +113,10 @@ struct ReminderCandidate: Identifiable, Equatable {
         }
 
         if priority > 0 {
-            lines.append("Priorité Apple Reminders : \(priority).")
+            lines.append("\(PunaiseL10n.string("Priorité Apple Reminders")) : \(priority).")
         }
 
-        lines.append("Importé depuis Apple Reminders.")
+        lines.append(PunaiseL10n.string("Importé depuis Apple Reminders."))
         return lines.joined(separator: "\n\n")
     }
 

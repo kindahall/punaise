@@ -3,8 +3,11 @@ import SwiftUI
 struct QuickCaptureBar: View {
     @State private var input = ""
     let onSubmit: (String) -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         HStack(spacing: 10) {
             Image(systemName: "bolt.circle.fill")
                 .foregroundStyle(.orange)
@@ -21,10 +24,10 @@ struct QuickCaptureBar: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 42)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(theme.inputSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(.black.opacity(0.08))
+                .stroke(theme.hairline)
         )
     }
 
@@ -41,6 +44,8 @@ struct PunaiseContextPanel: View {
     let reminders: [Reminder]
     @Binding var selectedID: Reminder.ID?
     let now: Date
+    let isPro: Bool
+    let onShowLicense: (PunaiseProFeature) -> Void
 
     var body: some View {
         Group {
@@ -50,7 +55,11 @@ struct PunaiseContextPanel: View {
             case .pinned:
                 DesktopPanel(reminders: reminders, selectedID: $selectedID, now: now)
             case .urgentNow:
-                UrgencyNowPanel(reminders: reminders, selectedID: $selectedID, now: now)
+                if isPro {
+                    UrgencyNowPanel(reminders: reminders, selectedID: $selectedID, now: now)
+                } else {
+                    ProLockCard(feature: .advancedUrgency, onShowLicense: onShowLicense)
+                }
             case .history:
                 HistoryPanel(reminders: reminders, selectedID: $selectedID, now: now)
             }
@@ -100,7 +109,7 @@ private struct DesktopPanel: View {
                             StickyCardView(reminder: reminder, now: now, scale: .mini)
                                 .frame(width: 132, height: 88)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(BouncyPlainButtonStyle())
                     }
                 }
             }
@@ -189,8 +198,10 @@ private struct MiniCalendarDayRow: View {
     let offset: Int
     let reminders: [Reminder]
     let now: Date
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
         let day = Calendar.current.date(byAdding: .day, value: offset, to: now) ?? now
         let count = reminders.filter { Calendar.current.isDate($0.deadline, inSameDayAs: day) }.count
 
@@ -203,13 +214,13 @@ private struct MiniCalendarDayRow: View {
                 .foregroundStyle(count == 0 ? Color.secondary : Color.orange)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(.black.opacity(0.05), in: Capsule())
+                .background((count == 0 ? theme.hoverSurface : Color.orange.opacity(theme.isDark ? 0.18 : 0.10)), in: Capsule())
         }
     }
 
     private func dayLabel(_ date: Date, offset: Int) -> String {
-        if offset == 0 { return "Aujourd’hui" }
-        if offset == 1 { return "Demain" }
+        if offset == 0 { return PunaiseL10n.string("Aujourd’hui") }
+        if offset == 1 { return PunaiseL10n.string("Demain") }
         return PunaiseDateFormatting.weekdayShort.string(from: date)
     }
 }
@@ -247,7 +258,7 @@ private struct CompactPunaiseRow: View {
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BouncyPlainButtonStyle())
     }
 }
 
@@ -257,10 +268,10 @@ private struct PanelTitle: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title)
+            Text(PunaiseL10n.string(title))
                 .font(.system(size: 13, weight: .bold))
             Spacer()
-            Text(subtitle)
+            Text(PunaiseL10n.string(subtitle))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -296,12 +307,22 @@ private struct StatusDot: View {
 
 private extension View {
     func panelChrome() -> some View {
-        self
+        modifier(PanelChromeModifier())
+    }
+}
+
+private struct PanelChromeModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
+        content
             .padding(12)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(theme.panelSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(.black.opacity(0.08))
+                    .stroke(theme.hairline)
             )
     }
 }

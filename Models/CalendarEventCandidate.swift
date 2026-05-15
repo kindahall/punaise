@@ -14,7 +14,7 @@ struct CalendarEventCandidate: Identifiable, Equatable {
 
     var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Événement sans titre" : trimmed
+        return trimmed.isEmpty ? PunaiseL10n.string("Événement sans titre") : trimmed
     }
 
     var deadline: Date {
@@ -95,10 +95,10 @@ struct CalendarEventCandidate: Identifiable, Equatable {
         }
 
         if deadline.timeIntervalSince(Date()) <= 24 * 60 * 60 {
-            return "Bientôt"
+            return PunaiseL10n.string("Bientôt")
         }
 
-        return "Signal faible"
+        return PunaiseL10n.string("Signal faible")
     }
 
     var shouldPinByDefault: Bool {
@@ -115,10 +115,10 @@ struct CalendarEventCandidate: Identifiable, Equatable {
 
         let trimmedLocation = location.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedLocation.isEmpty {
-            lines.append("Lieu : \(trimmedLocation)")
+            lines.append("\(PunaiseL10n.string("Lieu")) : \(trimmedLocation)")
         }
 
-        lines.append("Importé depuis Google Agenda via Calendrier macOS.")
+        lines.append(PunaiseL10n.string("Importé depuis Google Agenda via Calendrier macOS."))
         return lines.joined(separator: "\n\n")
     }
 
@@ -183,4 +183,22 @@ struct ReminderExternalSource: Codable, Equatable {
 enum ReminderExternalProvider: String, Codable {
     case googleCalendar
     case appleReminders
+
+    var title: String {
+        switch self {
+        case .googleCalendar:
+            return PunaiseL10n.string("Google Agenda")
+        case .appleReminders:
+            return PunaiseL10n.string("Apple Reminders")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .googleCalendar:
+            return "calendar"
+        case .appleReminders:
+            return "checklist"
+        }
+    }
 }

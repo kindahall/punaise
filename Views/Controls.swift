@@ -20,7 +20,7 @@ struct UrgencySelector: View {
                     .padding(.vertical, 9)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BouncyPlainButtonStyle(pressedScale: 0.97))
                 .background(background(for: urgency))
                 .overlay(
                     Rectangle()
@@ -108,8 +108,11 @@ struct StatusPill: View {
 
 struct EmptyStateView: View {
     let onCreate: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         VStack(spacing: 18) {
             PunaiseLogo(size: 54)
             Text("Punaise")
@@ -122,57 +125,162 @@ struct EmptyStateView: View {
             }
             .buttonStyle(PrimaryButtonStyle())
         }
-        .foregroundStyle(Color(red: 0.08, green: 0.22, blue: 0.40))
+        .foregroundStyle(theme.brand)
     }
 }
 
 struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
     func makeBody(configuration: Configuration) -> some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         configuration.label
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 13)
             .padding(.vertical, 8)
             .background(
-                Color(red: 0.08, green: 0.20, blue: 0.37)
-                    .opacity(configuration.isPressed ? 0.82 : 1),
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-            )
-    }
-}
-
-struct SecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Color(red: 0.08, green: 0.20, blue: 0.37))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Color.black.opacity(configuration.isPressed ? 0.08 : 0.04),
+                theme.accent.opacity(configuration.isPressed ? 0.82 : 1),
                 in: RoundedRectangle(cornerRadius: 8, style: .continuous)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(.black.opacity(0.08))
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.18))
             )
+            .shadow(color: theme.accent.opacity(configuration.isPressed ? 0.08 : 0.20), radius: configuration.isPressed ? 4 : 9, y: configuration.isPressed ? 2 : 5)
+            .scaleEffect(configuration.isPressed ? 0.91 : 1)
+            .animation(.interpolatingSpring(stiffness: 360, damping: 18), value: configuration.isPressed)
+    }
+}
+
+struct SecondaryButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(theme.brand)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                theme.inputSurface.opacity(configuration.isPressed ? 1.45 : 1),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(theme.hairline)
+            )
+            .shadow(color: theme.shadow.opacity(configuration.isPressed ? 0.18 : 0.35), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 4)
+            .scaleEffect(configuration.isPressed ? 0.91 : 1)
+            .animation(.interpolatingSpring(stiffness: 360, damping: 18), value: configuration.isPressed)
     }
 }
 
 struct IconButtonStyle: ButtonStyle {
     var isActive = false
+    @Environment(\.colorScheme) private var colorScheme
 
     func makeBody(configuration: Configuration) -> some View {
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
         configuration.label
-            .foregroundStyle(isActive ? .blue : .secondary)
+            .foregroundStyle(isActive ? theme.linkBlue : .secondary)
             .background(
-                (isActive ? Color.blue.opacity(0.13) : Color.black.opacity(0.04))
+                (isActive ? theme.selectedSurface : theme.inputSurface)
                     .opacity(configuration.isPressed ? 0.60 : 1),
                 in: RoundedRectangle(cornerRadius: 9, style: .continuous)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(isActive ? Color.blue.opacity(0.20) : Color.black.opacity(0.08))
+                    .stroke(isActive ? theme.linkBlue.opacity(0.26) : theme.hairline)
             )
+            .shadow(color: (isActive ? theme.linkBlue : theme.shadow).opacity(configuration.isPressed ? 0.03 : 0.12), radius: configuration.isPressed ? 2 : 7, y: configuration.isPressed ? 1 : 4)
+            .scaleEffect(configuration.isPressed ? 0.84 : 1)
+            .animation(.interpolatingSpring(stiffness: 420, damping: 17), value: configuration.isPressed)
+    }
+}
+
+struct BouncyPlainButtonStyle: ButtonStyle {
+    var pressedScale: CGFloat = 0.90
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .scaleEffect(configuration.isPressed ? pressedScale : 1)
+            .animation(.interpolatingSpring(stiffness: 420, damping: 16), value: configuration.isPressed)
+    }
+}
+
+struct AppearanceToggleButton: View {
+    @AppStorage(PunaisePreferenceKey.appearance) private var appearance = PunaiseAppearancePreference.system.rawValue
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let isDark = currentIsDark
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+        let nextTitle = isDark ? "clair" : "sombre"
+
+        Button {
+            withAnimation(.interpolatingSpring(stiffness: 360, damping: 22)) {
+                appearance = isDark ? PunaiseAppearancePreference.light.rawValue : PunaiseAppearancePreference.dark.rawValue
+            }
+        } label: {
+            Image(systemName: isDark ? "sun.max" : "moon")
+                .frame(width: 30, height: 30)
+                .foregroundStyle(isDark ? theme.urgencyYellow : theme.linkBlue)
+                .background(theme.inputSurface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(theme.hairline)
+                )
+        }
+        .buttonStyle(BouncyPlainButtonStyle(pressedScale: 0.84))
+        .help("Passer en mode \(nextTitle)")
+    }
+
+    private var currentIsDark: Bool {
+        let selected = PunaiseAppearancePreference.value(from: appearance)
+
+        switch selected {
+        case .system:
+            return colorScheme == .dark
+        case .light:
+            return false
+        case .dark:
+            return true
+        }
+    }
+}
+
+struct LanguageToggleButton: View {
+    @AppStorage(PunaisePreferenceKey.language) private var language = PunaiseLanguage.default.rawValue
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let current = PunaiseLanguage.value(from: language)
+        let theme = PunaiseTheme(colorScheme: colorScheme)
+
+        Button {
+            let nextLanguage = current.next
+            withAnimation(.interpolatingSpring(stiffness: 360, damping: 22)) {
+                language = nextLanguage.rawValue
+            }
+            NotificationCenter.default.post(name: .punaiseLanguageDidChange, object: nil)
+        } label: {
+            Text(current.next.shortTitle)
+                .font(.system(size: 12, weight: .bold))
+                .frame(width: 30, height: 30)
+                .foregroundStyle(theme.brand)
+                .background(theme.inputSurface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(theme.hairline)
+                )
+        }
+        .buttonStyle(BouncyPlainButtonStyle(pressedScale: 0.84))
+        .help(current == .french ? "Switch to English" : "Passer en français")
     }
 }

@@ -7,6 +7,7 @@ struct OnboardingView: View {
 
     @State private var step = 0
     @State private var didRequestNotifications = false
+    @AppStorage(PunaisePreferenceKey.language) private var language = PunaiseLanguage.default.rawValue
 
     private let steps = OnboardingStep.allCases
 
@@ -24,6 +25,8 @@ struct OnboardingView: View {
                 }
 
                 Spacer()
+
+                LanguageToggleButton()
             }
             .padding(.horizontal, 28)
             .padding(.top, 24)
@@ -49,13 +52,13 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                Button("Passer") {
+                Button(PunaiseL10n.string("Passer")) {
                     onFinish()
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BouncyPlainButtonStyle())
                 .foregroundStyle(.secondary)
 
-                Button(step == steps.count - 1 ? "Commencer" : "Suivant") {
+                Button(PunaiseL10n.string(step == steps.count - 1 ? "Commencer" : "Suivant")) {
                     if step == steps.count - 1 {
                         onFinish()
                     } else {
@@ -81,6 +84,7 @@ struct OnboardingView: View {
                 endPoint: .bottomTrailing
             )
         )
+        .punaiseLocale(language)
     }
 }
 
@@ -112,7 +116,7 @@ private struct OnboardingStepView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if step == .notifications {
-                    Button(didRequestNotifications ? "Demande envoyée" : "Autoriser") {
+                    Button(PunaiseL10n.string(didRequestNotifications ? "Demande envoyée" : "Autoriser")) {
                         onRequestNotifications()
                     }
                     .buttonStyle(SecondaryButtonStyle())
@@ -124,7 +128,7 @@ private struct OnboardingStepView: View {
                     Button {
                         onCreateFirstPunaise()
                     } label: {
-                        Label("Créer ma première Punaise", systemImage: "pin.fill")
+                        Label(PunaiseL10n.string("Créer ma première Punaise"), systemImage: "pin.fill")
                     }
                     .buttonStyle(SecondaryButtonStyle())
                     .padding(.top, 4)
@@ -140,7 +144,7 @@ private struct OnboardingStepView: View {
             ZStack {
                 StickyCardView(
                     reminder: Reminder(
-                        title: "Envoyer contrat",
+                        title: PunaiseL10n.string("Envoyer contrat"),
                         note: "",
                         deadline: Date().addingTimeInterval(45 * 60),
                         urgency: .urgent,
@@ -160,9 +164,9 @@ private struct OnboardingStepView: View {
                     Image(systemName: "bell.badge.fill")
                         .font(.system(size: 40, weight: .semibold))
                         .foregroundStyle(.red)
-                    Text("Punaise critique")
+                    Text(PunaiseL10n.string("Punaise critique"))
                         .font(.system(size: 18, weight: .bold))
-                    Text("Une échéance arrive.")
+                    Text(PunaiseL10n.string("Une échéance arrive."))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
@@ -174,7 +178,7 @@ private struct OnboardingStepView: View {
                     KeyCap("⌥")
                     KeyCap("P")
                 }
-                Text("Nouvelle Punaise")
+                Text(PunaiseL10n.string("Nouvelle Punaise"))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(.secondary)
             }
@@ -182,7 +186,7 @@ private struct OnboardingStepView: View {
             ZStack {
                 StickyCardView(
                     reminder: Reminder(
-                        title: "Ma première Punaise",
+                        title: PunaiseL10n.string("Ma première Punaise"),
                         note: "",
                         deadline: Date().addingTimeInterval(2 * 60 * 60),
                         urgency: .urgent,
@@ -206,39 +210,39 @@ private enum OnboardingStep: CaseIterable {
     var kicker: String {
         switch self {
         case .promise:
-            return "Urgence visible"
+            return PunaiseL10n.string("Urgence visible")
         case .notifications:
             return "macOS"
         case .shortcut:
-            return "Raccourci"
+            return PunaiseL10n.string("Raccourci")
         case .firstPunaise:
-            return "Départ"
+            return PunaiseL10n.string("Départ")
         }
     }
 
     var title: String {
         switch self {
         case .promise:
-            return "Punaise rend l’urgence visible."
+            return PunaiseL10n.string("Punaise rend l’urgence visible.")
         case .notifications:
-            return "Sois prévenu avant le noir."
+            return PunaiseL10n.string("Sois prévenu avant le noir.")
         case .shortcut:
-            return "Capture une urgence sans changer d’écran."
+            return PunaiseL10n.string("Capture une urgence sans changer d’écran.")
         case .firstPunaise:
-            return "Épingle ce qui ne peut pas attendre."
+            return PunaiseL10n.string("Épingle ce qui ne peut pas attendre.")
         }
     }
 
     var subtitle: String {
         switch self {
         case .promise:
-            return "Une Punaise commence calme, puis attire ton attention à mesure que l’échéance approche."
+            return PunaiseL10n.string("Une Punaise commence calme, puis attire ton attention à mesure que l’échéance approche.")
         case .notifications:
-            return "Les notifications complètent le bureau quand une Punaise devient critique."
+            return PunaiseL10n.string("Les notifications complètent le bureau quand une Punaise devient critique.")
         case .shortcut:
-            return "Ctrl + Option + P crée une Punaise rapide depuis n’importe où."
+            return PunaiseL10n.string("Ctrl + Option + P crée une Punaise rapide depuis n’importe où.")
         case .firstPunaise:
-            return "Crée une Punaise test et laisse-la vivre sur ton bureau."
+            return PunaiseL10n.string("Crée une Punaise test et laisse-la vivre sur ton bureau.")
         }
     }
 

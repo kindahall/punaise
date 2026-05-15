@@ -19,6 +19,8 @@ let package = Package(
                 ".git",
                 ".build",
                 "dist",
+                "landing",
+                "landing-assets",
                 "script",
                 "README.md",
                 "LICENSE",

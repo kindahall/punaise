@@ -3,9 +3,10 @@ set -euo pipefail
 
 APP_NAME="Punaise"
 BUNDLE_ID="com.artisaul.Punaise"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.6}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 MIN_SYSTEM_VERSION="13.0"
+PUBLIC_RELEASE="${PUBLIC_RELEASE:-0}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -23,6 +24,32 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 DMG_PATH="$INSTALLER_DIR/$APP_NAME-$VERSION.dmg"
 PKG_PATH="$INSTALLER_DIR/$APP_NAME-$VERSION.pkg"
 
+NOTARY_ARGS=()
+if [[ -n "${NOTARY_PROFILE:-}" ]]; then
+  NOTARY_ARGS=(--keychain-profile "$NOTARY_PROFILE")
+elif [[ -n "${APPLE_ID:-}" || -n "${APP_SPECIFIC_PASSWORD:-}" || -n "${TEAM_ID:-}" ]]; then
+  if [[ -z "${APPLE_ID:-}" || -z "${APP_SPECIFIC_PASSWORD:-}" || -z "${TEAM_ID:-}" ]]; then
+    echo "APPLE_ID, APP_SPECIFIC_PASSWORD and TEAM_ID must be set together." >&2
+    exit 2
+  fi
+  NOTARY_ARGS=(--apple-id "$APPLE_ID" --password "$APP_SPECIFIC_PASSWORD" --team-id "$TEAM_ID")
+fi
+
+if [[ "$PUBLIC_RELEASE" == "1" ]]; then
+  if [[ -z "${CODESIGN_IDENTITY:-}" ]]; then
+    echo "PUBLIC_RELEASE=1 requires CODESIGN_IDENTITY, for example: Developer ID Application: Name (TEAMID)" >&2
+    exit 2
+  fi
+  if [[ -z "${INSTALLER_SIGN_IDENTITY:-}" ]]; then
+    echo "PUBLIC_RELEASE=1 requires INSTALLER_SIGN_IDENTITY, for example: Developer ID Installer: Name (TEAMID)" >&2
+    exit 2
+  fi
+  if [[ "${#NOTARY_ARGS[@]}" -eq 0 ]]; then
+    echo "PUBLIC_RELEASE=1 requires NOTARY_PROFILE or APPLE_ID + APP_SPECIFIC_PASSWORD + TEAM_ID." >&2
+    exit 2
+  fi
+fi
+
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 mkdir -p "$DIST_DIR" "$RELEASE_DIR" "$INSTALLER_DIR"
@@ -38,6 +65,7 @@ cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 cp "$ROOT_DIR/Resources/Punaise.icns" "$APP_RESOURCES/Punaise.icns"
 cp "$ROOT_DIR/Resources/PunaiseIcon1024.png" "$APP_RESOURCES/PunaiseIcon1024.png"
+find "$ROOT_DIR/Resources" -maxdepth 1 -type d -name "*.lproj" -exec cp -R {} "$APP_RESOURCES/" \;
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -46,6 +74,8 @@ cat >"$INFO_PLIST" <<PLIST
 <dict>
   <key>CFBundleDevelopmentRegion</key>
   <string>fr</string>
+  <key>CFBundleAllowMixedLocalizations</key>
+  <true/>
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
   <key>CFBundleExecutable</key>
@@ -143,20 +173,22 @@ fi
 
 pkgutil --payload-files "$PKG_PATH" >/dev/null
 
-if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-  echo "==> Notarizing DMG with keychain profile $NOTARY_PROFILE"
+if [[ "${#NOTARY_ARGS[@]}" -gt 0 ]]; then
+  echo "==> Notarizing DMG"
   xcrun notarytool submit "$DMG_PATH" \
-    --keychain-profile "$NOTARY_PROFILE" \
+    "${NOTARY_ARGS[@]}" \
     --wait
   xcrun stapler staple "$DMG_PATH"
   xcrun stapler validate "$DMG_PATH"
+  spctl -a -vvv -t open "$DMG_PATH"
 
-  echo "==> Notarizing PKG with keychain profile $NOTARY_PROFILE"
+  echo "==> Notarizing PKG"
   xcrun notarytool submit "$PKG_PATH" \
-    --keychain-profile "$NOTARY_PROFILE" \
+    "${NOTARY_ARGS[@]}" \
     --wait
   xcrun stapler staple "$PKG_PATH"
   xcrun stapler validate "$PKG_PATH"
+  spctl -a -vvv -t install "$PKG_PATH"
 fi
 
 echo

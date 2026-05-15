@@ -3,8 +3,13 @@ import UserNotifications
 
 enum ReminderNotificationScheduler {
     private static let prefix = "punaise."
+    private static var isSelfTesting: Bool {
+        CommandLine.arguments.contains("--self-test")
+    }
 
     static func requestAuthorization(for reminders: [Reminder]) {
+        guard !isSelfTesting else { return }
+
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
             refresh(reminders: reminders)
@@ -12,6 +17,8 @@ enum ReminderNotificationScheduler {
     }
 
     static func refresh(reminders: [Reminder]) {
+        guard !isSelfTesting else { return }
+
         let center = UNUserNotificationCenter.current()
         let identifiers = reminders.flatMap { reminder in
             [
@@ -35,8 +42,10 @@ enum ReminderNotificationScheduler {
         guard triggerDate > Date().addingTimeInterval(30) else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "Punaise critique"
-        content.body = "\(reminder.displayTitle) arrive bientôt à échéance."
+        content.title = PunaiseL10n.string("Punaise critique")
+        content.body = PunaiseLanguage.current == .english
+            ? "\(reminder.displayTitle) is nearing its deadline."
+            : "\(reminder.displayTitle) arrive bientôt à échéance."
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(
@@ -65,8 +74,10 @@ enum ReminderNotificationScheduler {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = "Anti-oubli Punaise"
-        content.body = "\(reminder.displayTitle) est critique et reste punaisée."
+        content.title = PunaiseL10n.string("Anti-oubli Punaise")
+        content.body = PunaiseLanguage.current == .english
+            ? "\(reminder.displayTitle) is critical and stays pinned."
+            : "\(reminder.displayTitle) est critique et reste punaisée."
         content.sound = .defaultCritical
 
         let trigger = UNCalendarNotificationTrigger(
@@ -87,8 +98,10 @@ enum ReminderNotificationScheduler {
         guard reminder.deadline > Date().addingTimeInterval(30) else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "Échéance Punaise"
-        content.body = "\(reminder.displayTitle) ne peut plus attendre."
+        content.title = PunaiseL10n.string("Échéance Punaise")
+        content.body = PunaiseLanguage.current == .english
+            ? "\(reminder.displayTitle) cannot wait anymore."
+            : "\(reminder.displayTitle) ne peut plus attendre."
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(

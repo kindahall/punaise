@@ -8,6 +8,9 @@ struct StickyCardView: View {
     var onOpen: (() -> Void)?
     var onUnpin: (() -> Void)?
 
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.55)) { context in
             let status = reminder.status(at: context.date)
@@ -15,7 +18,12 @@ struct StickyCardView: View {
             let score = reminder.pressureScore(at: context.date)
             let pulse = sin(context.date.timeIntervalSinceReferenceDate * 3.4)
             let vibration = sin(context.date.timeIntervalSinceReferenceDate * 22) * stage.vibrationAmplitude
-            let palette = StickyPalette.palette(for: reminder.urgency, status: status, pulse: pulse)
+            let palette = StickyPalette.palette(
+                for: reminder.urgency,
+                status: status,
+                pulse: pulse,
+                colorScheme: colorScheme
+            )
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: scale.cornerRadius, style: .continuous)
@@ -26,8 +34,8 @@ struct StickyCardView: View {
                     )
                     .shadow(
                         color: palette.glow,
-                        radius: CGFloat(status == .critical ? 20 : 10) * CGFloat(stage.haloMultiplier),
-                        y: 8
+                        radius: CGFloat(status == .critical ? 22 : 11) * CGFloat(stage.haloMultiplier) + (isHovered ? scale.hoverShadowBoost : 0),
+                        y: isHovered ? 18 : 8
                     )
 
                 if stage >= .halo {
@@ -37,10 +45,17 @@ struct StickyCardView: View {
                         .padding(-3)
                 }
 
+                if isHovered {
+                    RoundedRectangle(cornerRadius: scale.cornerRadius + 3, style: .continuous)
+                        .stroke(palette.accent.opacity(0.34), lineWidth: 2)
+                        .padding(-3)
+                        .transition(.opacity)
+                }
+
                 PaperFiberOverlay(cornerRadius: scale.cornerRadius, isDark: palette.isDark)
 
                 LinearGradient(
-                    colors: [.white.opacity(palette.isDark ? 0.05 : 0.28), .clear],
+                    colors: [.white.opacity(palette.isDark ? 0.05 : 0.22), .clear, .black.opacity(palette.isDark ? 0.12 : 0.025)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -82,7 +97,7 @@ struct StickyCardView: View {
                                 Image(systemName: "pin.slash")
                                     .font(.system(size: scale.captionSize, weight: .semibold))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(BouncyPlainButtonStyle(pressedScale: 0.82))
                             .foregroundStyle(palette.secondaryText)
                             .help("Désépingler")
                         } else {
@@ -95,7 +110,7 @@ struct StickyCardView: View {
                     Spacer(minLength: 2)
 
                     Text(reminder.displayTitle)
-                        .font(.custom("Noteworthy", size: scale.titleSize).weight(.semibold))
+                        .font(.system(size: scale.titleSize, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.primaryText)
                         .lineLimit(scale.titleLines)
                         .minimumScaleFactor(0.72)
@@ -106,12 +121,15 @@ struct StickyCardView: View {
                 .padding(scale.padding)
             }
             .contentShape(RoundedRectangle(cornerRadius: scale.cornerRadius, style: .continuous))
+            .onHover { isHovered = $0 }
             .onTapGesture {
                 onOpen?()
             }
-            .offset(x: CGFloat(vibration))
-            .rotationEffect(.degrees((status == .critical ? pulse * 0.35 : 0) + vibration * 0.12))
+            .scaleEffect(isHovered ? scale.hoverScale : 1.0)
+            .offset(x: CGFloat(vibration), y: isHovered ? scale.hoverLift : 0)
+            .rotationEffect(.degrees((status == .critical ? pulse * 0.35 : 0) + vibration * 0.12 + (isHovered ? scale.hoverRotation : 0)))
             .animation(.easeInOut(duration: 0.28), value: pulse)
+            .animation(.interpolatingSpring(stiffness: 300, damping: 18), value: isHovered)
             .accessibilityLabel(reminder.displayTitle)
         }
     }
@@ -144,9 +162,9 @@ private struct AntiForgetBadge: View {
 
     var body: some View {
         if status == .overdue {
-            badge("PUNAISE NOIRE", color: Color(red: 1.0, green: 0.29, blue: 0.24))
+            badge(PunaiseL10n.string("PUNAISE NOIRE"), color: Color(red: 1.0, green: 0.29, blue: 0.24))
         } else if status == .critical {
-            badge(stage >= .vibrate ? "ANTI-OUBLI" : "CRITIQUE", color: palette.accent)
+            badge(PunaiseL10n.string(stage >= .vibrate ? "ANTI-OUBLI" : "CRITIQUE"), color: palette.accent)
         } else if stage >= .halo {
             badge(stage.title.uppercased(), color: palette.accent)
         }
@@ -241,6 +259,50 @@ enum StickyScale {
             return 5
         }
     }
+
+    var hoverScale: CGFloat {
+        switch self {
+        case .regular:
+            return 1.065
+        case .preview:
+            return 1.055
+        case .mini:
+            return 1.035
+        }
+    }
+
+    var hoverLift: CGFloat {
+        switch self {
+        case .regular:
+            return -7
+        case .preview:
+            return -5
+        case .mini:
+            return -2
+        }
+    }
+
+    var hoverRotation: Double {
+        switch self {
+        case .regular:
+            return 0.8
+        case .preview:
+            return 0.45
+        case .mini:
+            return 0.25
+        }
+    }
+
+    var hoverShadowBoost: CGFloat {
+        switch self {
+        case .regular:
+            return 18
+        case .preview:
+            return 12
+        case .mini:
+            return 6
+        }
+    }
 }
 
 private struct PinHeadView: View {
@@ -261,12 +323,12 @@ private struct PinHeadView: View {
                 .shadow(color: shadowColor, radius: status == .critical ? 6 + max(0, pulse) * 4 : 4, y: 2)
 
             Circle()
-                .stroke(.white.opacity(0.55), lineWidth: 1)
+                .stroke(.white.opacity(status == .overdue ? 0.20 : 0.45), lineWidth: 1)
 
-            Circle()
-                .fill(.white.opacity(0.42))
-                .frame(width: diameter * 0.28, height: diameter * 0.28)
-                .offset(x: -diameter * 0.16, y: -diameter * 0.16)
+            Image(systemName: "pin.fill")
+                .font(.system(size: diameter * 0.42, weight: .bold))
+                .foregroundStyle(status == .critical ? .white : .white.opacity(0.82))
+                .rotationEffect(.degrees(-18))
         }
         .frame(width: diameter, height: diameter)
         .scaleEffect(status == .critical ? 1 + max(0, pulse) * 0.05 : 1)
@@ -286,11 +348,11 @@ private struct PinHeadView: View {
     private var metalColors: [Color] {
         switch status {
         case .critical:
-            return [Color(red: 1.0, green: 0.60, blue: 0.56), Color(red: 0.62, green: 0.03, blue: 0.02)]
+            return [Color(red: 1.0, green: 0.42, blue: 0.38), Color(red: 0.62, green: 0.03, blue: 0.02)]
         case .overdue:
-            return [.white.opacity(0.82), Color(red: 0.22, green: 0.22, blue: 0.24)]
+            return [Color(red: 0.20, green: 0.21, blue: 0.23), Color(red: 0.045, green: 0.047, blue: 0.052)]
         default:
-            return [.white.opacity(0.96), Color(red: 0.55, green: 0.52, blue: 0.46)]
+            return [Color(red: 1.0, green: 0.68, blue: 0.25), Color(red: 0.88, green: 0.32, blue: 0.08)]
         }
     }
 
@@ -335,7 +397,9 @@ private struct StickyPalette {
     let glow: Color
     let isDark: Bool
 
-    static func palette(for urgency: Urgency, status: ReminderStatus, pulse: Double) -> StickyPalette {
+    static func palette(for urgency: Urgency, status: ReminderStatus, pulse: Double, colorScheme: ColorScheme) -> StickyPalette {
+        let interfaceIsDark = colorScheme == .dark
+
         if status == .overdue {
             return StickyPalette(
                 background: Color(red: 0.025, green: 0.028, blue: 0.030),
@@ -351,7 +415,7 @@ private struct StickyPalette {
         if status == .critical {
             let glowOpacity = 0.32 + max(0, pulse) * 0.26
             return StickyPalette(
-                background: Color(red: 1.0, green: 0.25, blue: 0.20),
+                background: interfaceIsDark ? Color(red: 0.48, green: 0.055, blue: 0.050) : Color(red: 1.0, green: 0.25, blue: 0.20),
                 primaryText: .white,
                 secondaryText: .white.opacity(0.84),
                 accent: .white,
@@ -362,6 +426,18 @@ private struct StickyPalette {
         }
 
         if status == .pressing {
+            if interfaceIsDark {
+                return StickyPalette(
+                    background: Color(red: 0.34, green: 0.18, blue: 0.070),
+                    primaryText: Color(red: 1.0, green: 0.94, blue: 0.84),
+                    secondaryText: Color(red: 1.0, green: 0.82, blue: 0.58).opacity(0.78),
+                    accent: Color(red: 1.0, green: 0.62, blue: 0.24),
+                    border: Color(red: 1.0, green: 0.56, blue: 0.16).opacity(0.40),
+                    glow: Color(red: 1.0, green: 0.42, blue: 0.09).opacity(0.20),
+                    isDark: true
+                )
+            }
+
             return StickyPalette(
                 background: Color(red: 1.0, green: 0.58, blue: 0.24),
                 primaryText: Color(red: 0.19, green: 0.08, blue: 0.02),
@@ -373,7 +449,19 @@ private struct StickyPalette {
             )
         }
 
-        if status == .watching {
+        if status == .watching && urgency == .urgent {
+            if interfaceIsDark {
+                return StickyPalette(
+                    background: Color(red: 0.28, green: 0.23, blue: 0.085),
+                    primaryText: Color(red: 1.0, green: 0.95, blue: 0.80),
+                    secondaryText: Color(red: 0.96, green: 0.80, blue: 0.42).opacity(0.76),
+                    accent: Color(red: 0.98, green: 0.77, blue: 0.25),
+                    border: Color(red: 1.0, green: 0.74, blue: 0.22).opacity(0.30),
+                    glow: Color(red: 0.95, green: 0.64, blue: 0.12).opacity(0.12),
+                    isDark: true
+                )
+            }
+
             return StickyPalette(
                 background: Color(red: 1.0, green: 0.86, blue: 0.38),
                 primaryText: Color(red: 0.16, green: 0.12, blue: 0.03),
@@ -387,6 +475,18 @@ private struct StickyPalette {
 
         switch urgency {
         case .urgent:
+            if interfaceIsDark {
+                return StickyPalette(
+                    background: Color(red: 0.23, green: 0.20, blue: 0.095),
+                    primaryText: Color(red: 1.0, green: 0.96, blue: 0.84),
+                    secondaryText: Color(red: 0.90, green: 0.76, blue: 0.45).opacity(0.78),
+                    accent: Color(red: 0.96, green: 0.70, blue: 0.22),
+                    border: Color(red: 0.95, green: 0.64, blue: 0.18).opacity(0.24),
+                    glow: Color(red: 0.86, green: 0.58, blue: 0.14).opacity(0.10),
+                    isDark: true
+                )
+            }
+
             return StickyPalette(
                 background: Color(red: 1.0, green: 0.88, blue: 0.52),
                 primaryText: Color(red: 0.14, green: 0.10, blue: 0.03),
@@ -397,6 +497,18 @@ private struct StickyPalette {
                 isDark: false
             )
         case .neutral:
+            if interfaceIsDark {
+                return StickyPalette(
+                    background: Color(red: 0.080, green: 0.145, blue: 0.220),
+                    primaryText: Color(red: 0.88, green: 0.94, blue: 1.0),
+                    secondaryText: Color(red: 0.68, green: 0.82, blue: 1.0).opacity(0.74),
+                    accent: Color(red: 0.42, green: 0.69, blue: 1.0),
+                    border: Color(red: 0.33, green: 0.58, blue: 0.90).opacity(0.28),
+                    glow: Color(red: 0.20, green: 0.47, blue: 0.86).opacity(0.12),
+                    isDark: true
+                )
+            }
+
             return StickyPalette(
                 background: Color(red: 0.74, green: 0.88, blue: 1.0),
                 primaryText: Color(red: 0.05, green: 0.11, blue: 0.20),
@@ -407,6 +519,18 @@ private struct StickyPalette {
                 isDark: false
             )
         case .relaxed:
+            if interfaceIsDark {
+                return StickyPalette(
+                    background: Color(red: 0.090, green: 0.195, blue: 0.130),
+                    primaryText: Color(red: 0.88, green: 1.0, blue: 0.90),
+                    secondaryText: Color(red: 0.66, green: 0.88, blue: 0.68).opacity(0.74),
+                    accent: Color(red: 0.42, green: 0.86, blue: 0.48),
+                    border: Color(red: 0.35, green: 0.72, blue: 0.40).opacity(0.24),
+                    glow: Color(red: 0.28, green: 0.70, blue: 0.36).opacity(0.11),
+                    isDark: true
+                )
+            }
+
             return StickyPalette(
                 background: Color(red: 0.72, green: 0.94, blue: 0.53),
                 primaryText: Color(red: 0.08, green: 0.14, blue: 0.06),
