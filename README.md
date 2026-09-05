@@ -77,3 +77,7 @@ NOTARY_PROFILE="punaise-notary" \
 ```
 
 En `PUBLIC_RELEASE=1`, le script refuse de produire une release si la signature Developer ID ou la notarisation manque.
+
+## Support
+
+If this project is useful to you, you can support its development with a free and entirely optional tip through the repository's **Sponsor** button. Thank you for your support.
